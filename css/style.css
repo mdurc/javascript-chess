@@ -1,0 +1,81 @@
+body{
+
+	font-family: sans-serif;
+}
+
+
+
+.board{
+	display: grid;
+	grid-template-columns: repeat(8, 1fr);
+
+
+	width:560px;
+	height:560px;
+
+	text-align: center;
+
+	margin-left: auto;
+	margin-right: auto;
+	margin-top: 50px;
+	
+	border: 2px solid black;
+}
+
+.square{
+	background-repeat: no-repeat;
+	background-size: 70px;
+	background-position: center;
+}
+
+.square.piece{
+	cursor: grab;
+}
+
+.square.wp{
+	background-image: url("https://images.chesscomfiles.com/chess-themes/pieces/wood/150/wp.png");
+}
+
+.square.bp{
+	background-image:url('https://images.chesscomfiles.com/chess-themes/pieces/wood/150/bp.png');
+}
+
+.square.wr{
+	background-image: url('https://images.chesscomfiles.com/chess-themes/pieces/wood/150/wr.png');
+}
+
+.square.wn{
+	background-image: url('https://images.chesscomfiles.com/chess-themes/pieces/wood/150/wn.png');
+}
+
+.square.wb{
+	background-image: url('https://images.chesscomfiles.com/chess-themes/pieces/wood/150/wb.png');
+}
+
+.square.wk{
+	background-image: url('https://images.chesscomfiles.com/chess-themes/pieces/wood/150/wk.png');
+}
+
+.square.wq{
+	background-image: url('https://images.chesscomfiles.com/chess-themes/pieces/wood/150/wq.png');
+}
+
+.square.br{
+	background-image: url('https://images.chesscomfiles.com/chess-themes/pieces/wood/150/br.png');
+}
+
+.square.bn{
+	background-image: url('https://images.chesscomfiles.com/chess-themes/pieces/wood/150/bn.png');
+}
+
+.square.bb{
+	background-image: url('https://images.chesscomfiles.com/chess-themes/pieces/wood/150/bb.png');
+}
+
+.square.bk{
+	background-image: url('https://images.chesscomfiles.com/chess-themes/pieces/wood/150/bk.png');
+}
+
+.square.bq{
+	background-image: url('https://images.chesscomfiles.com/chess-themes/pieces/wood/150/bq.png');
+}
