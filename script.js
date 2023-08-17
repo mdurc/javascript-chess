@@ -9,16 +9,63 @@ let lastPressedPiece = null;
 boardSetup();
 
 let pieces = document.querySelectorAll(".piece.white");
+const attackedSquares = {
+	white: [], 
+	black: [],
+};
+
+updateAttackedSquares();
+
+
 
 
 let isDragging = false;
 
-let whiteCanCastle = true;
-let blackCanCastle = true;
+function swapNodes(lastPressedPiece, square){	
+	lastPressedPiece.parentNode.appendChild(newEmpty());
+	square.parentNode.appendChild(lastPressedPiece);  
+	removeHints();
+	square.remove();
+	updateAttackedSquares();
+	console.log(attackedSquares.white);
+	console.log(attackedSquares.black);
+	console.log(isSquareAttackedByColor(3,5,"black"));
+}
+
+function movePiecePosition(lastPressedPiece, square){//lastPressedPiece is the actual piece element. Square is the empty div element
+	if(lastPressedPiece.classList.contains("wr") && lastPressedPiece.getAttribute("data-moved")=="false" || lastPressedPiece.classList.contains("br") && lastPressedPiece.getAttribute("data-moved")=="false"){
+		lastPressedPiece.setAttribute("data-moved", "true");
+
+		swapNodes(lastPressedPiece, square);
+		
+	}else if(lastPressedPiece.classList.contains("wk") && lastPressedPiece.getAttribute("data-moved")=="false"|| lastPressedPiece.classList.contains("bk") && lastPressedPiece.getAttribute("data-moved")=="false"){
+		lastPressedPiece.setAttribute("data-moved", "true");
+		//take care of moving the rook over in castling
+		//kingStartingSquareColumn = 5;
+		if(7 == parseInt(square.parentNode.getAttribute("column"))){//short castled because moved two columns to the right
+			const rookNewSquare = document.querySelector(`[row="${parseInt(lastPressedPiece.parentNode.getAttribute("row"))}"][column="${6}"]`);
+			const rook = document.querySelector(`[row="${parseInt(lastPressedPiece.parentNode.getAttribute("row"))}"][column="${8}"]`);
+			
+			rook.firstChild.setAttribute("data-moved", "true");
+			swapNodes(rook.firstChild, rookNewSquare.firstChild);	
+
+		}else if(3 == parseInt(square.parentNode.getAttribute("column"))){//long castled because moved two columns to the left
+			const rookNewSquare = document.querySelector(`[row="${parseInt(lastPressedPiece.parentNode.getAttribute("row"))}"][column="${4}"]`);
+			const rook = document.querySelector(`[row="${parseInt(lastPressedPiece.parentNode.getAttribute("row"))}"][column="${1}"]`);
+
+			rook.firstChild.setAttribute("data-moved", "true");
+			swapNodes(rook.firstChild, rookNewSquare.firstChild);
+			
+		}//else, still move the king normally normally and remove hints and empty divs
+		swapNodes(lastPressedPiece, square);
+	}else{
+		swapNodes(lastPressedPiece, square);
+	}	
+}
 
 
 document.addEventListener('mousedown', (event)=>{
-	if (event.target.parentNode.querySelector('.hint')) {
+	if (event.target.parentNode.querySelector('.hint') && event.target.tagName!="BODY") {
 		const square = event.target;
 		const squareRect = square.getBoundingClientRect();
 		const mouseX = event.clientX;
@@ -29,15 +76,7 @@ document.addEventListener('mousedown', (event)=>{
 			mouseY >= squareRect.top &&
 			mouseY <= squareRect.bottom
 		) {
-			lastPressedPiece.parentNode.appendChild(newEmpty());
-			square.parentNode.appendChild(lastPressedPiece);
-			if(lastPressedPiece.classList.contains("wk") || lastPressedPiece.classList.contains("wr")){
-				whiteCanCastle = false;
-			}else if(lastPressedPiece.classList.contains("bk") || lastPressedPiece.classList.contains("br")){
-				blackCanCastle = false;
-			}
-			removeHints();
-			square.remove();
+			movePiecePosition(lastPressedPiece,square);
 			switchTurn();
 		}
     }
@@ -127,15 +166,7 @@ document.addEventListener('mouseup', () => {
 			draggedPiece.style.left = centerX + 'px';
 			draggedPiece.style.top = centerY + 'px';
 
-			draggedPiece.parentNode.appendChild(newEmpty());
-			droppedOnSquare.parentNode.appendChild(draggedPiece);
-			if(draggedPiece.classList.contains("wk") || draggedPiece.classList.contains("wr")){
-				whiteCanCastle = false;
-			}else if(draggedPiece.classList.contains("bk") || draggedPiece.classList.contains("br")){
-				blackCanCastle = false;
-			}
-			removeHints();
-			droppedOnSquare.remove();
+			movePiecePosition(draggedPiece, droppedOnSquare);
 			switchTurn();
 
 		} else {
@@ -195,6 +226,7 @@ function pieceSetup(square, r, c) {
 		startPiece.classList.add("wr");
 		startPiece.classList.add("white");
 		startPiece.src = "./pieceImages/wr.png";
+		startPiece.setAttribute("data-moved", "false");
 	}else if(r==1&&c==2 || r==1&&c==7){
 		startPiece.classList.add("piece");
 		startPiece.classList.add("wn");
@@ -215,11 +247,13 @@ function pieceSetup(square, r, c) {
 		startPiece.classList.add("wk");
 		startPiece.classList.add("white");
 		startPiece.src = "./pieceImages/wk.png";
+		startPiece.setAttribute("data-moved", "false");
 	}else if(r==8&&c==1 || r==8&&c==8){
 		startPiece.classList.add("piece");
 		startPiece.classList.add("br");
 		startPiece.classList.add("black");
 		startPiece.src = "./pieceImages/br.png";
+		startPiece.setAttribute("data-moved", "false");
 	}else if(r==8&&c==2 || r==8&&c==7){
 		startPiece.classList.add("piece");
 		startPiece.classList.add("bn");
@@ -240,6 +274,7 @@ function pieceSetup(square, r, c) {
 		startPiece.classList.add("bk");
 		startPiece.classList.add("black");
 		startPiece.src = "./pieceImages/bk.png";
+		startPiece.setAttribute("data-moved", "false");
 	}else{
 		isBlank = true;
 		square.appendChild(newEmpty());
@@ -306,18 +341,18 @@ function searchMoves(pieceElement){
 	let locY = parseInt(pieceElement.parentNode.getAttribute("row"));
 
 	if(pieceElement.classList.contains("wp")){
+		hint(document.querySelector(`[row="${locY+1}"][column="${locX}"]`));
 		if(locY == 2){
-			hint(document.querySelector(`[row="${locY+1}"][column="${locX}"]`));
-			hint(document.querySelector(`[row="${locY+2}"][column="${locX}"]`));
-		}else{
-			hint(document.querySelector(`[row="${locY+1}"][column="${locX}"]`));
+			if(document.querySelector(`[row="${locY+1}"][column="${locX}"]`).querySelector(".piece")==null){
+				hint(document.querySelector(`[row="${locY+2}"][column="${locX}"]`));
+			}
 		}
 	}else if(pieceElement.classList.contains("bp")){
+		hint(document.querySelector(`[row="${locY-1}"][column="${locX}"]`));
 		if(locY == 7){
-			hint(document.querySelector(`[row="${locY-1}"][column="${locX}"]`));
-			hint(document.querySelector(`[row="${locY-2}"][column="${locX}"]`));
-		}else{
-			hint(document.querySelector(`[row="${locY-1}"][column="${locX}"]`));
+			if(document.querySelector(`[row="${locY-1}"][column="${locX}"]`).querySelector(".piece")==null){
+				hint(document.querySelector(`[row="${locY-2}"][column="${locX}"]`));
+			}
 		}
 	}else if(pieceElement.classList.contains("wk") || pieceElement.classList.contains("bk")){
 		const potentialHintSquares = [
@@ -330,9 +365,28 @@ function searchMoves(pieceElement){
 			document.querySelector(`[row="${locY-1}"][column="${locX+1}"]`),
 			document.querySelector(`[row="${locY-1}"][column="${locX-1}"]`),
 		];
+
+		if (pieceElement.getAttribute("data-moved") === "false") {
+			const rookRight = document.querySelector(`[row="${locY}"][column="${locX + 3}"]`);
+			const rookLeft = document.querySelector(`[row="${locY}"][column="${locX - 4}"]`);
+
+			if (rookRight && rookRight.firstChild && rookRight.firstChild.classList.contains("piece") && rookRight.firstChild.getAttribute("data-moved") === "false") {
+				potentialHintSquares.push(document.querySelector(`[row="${locY}"][column="${locX + 2}"]`));
+			}
+
+			if (rookLeft && rookLeft.firstChild && rookLeft.firstChild.classList.contains("piece") && rookLeft.firstChild.getAttribute("data-moved") === "false") {
+				potentialHintSquares.push(document.querySelector(`[row="${locY}"][column="${locX - 2}"]`));
+			}
+		}
 		potentialHintSquares.forEach(square => {
 			if (square) {
-				hint(square);
+				if(turn.textContent.toLowerCase() == "white" && isSquareAttackedByColor(parseInt(square.getAttribute("row")), parseInt(square.getAttribute("column")), "black")){
+
+				}else if(turn.textContent.toLowerCase() == "black" && isSquareAttackedByColor(parseInt(square.getAttribute("row")), parseInt(square.getAttribute("column")), "white")){
+
+				}else{
+					hint(square);
+				}
 			}
 		});
 	}else if(pieceElement.classList.contains("wq") || pieceElement.classList.contains("bq")){
@@ -426,6 +480,184 @@ function searchMoves(pieceElement){
 		});
 	}
 
+}
+
+
+function isSquareAttackedByColor(row, column, color) {
+	const squares = attackedSquares[color];
+	for (const square of squares) {
+		const squareRow = parseInt(square.getAttribute('row'));
+		const squareColumn = parseInt(square.getAttribute('column'));
+		if (squareRow === row && squareColumn === column) {
+			return true;
+		}
+	}
+	return false;
+}
+
+
+function updateAttackedSquares() {
+	console.log(turn.textContent);
+	if(turn.textContent.toLowerCase()=="white"){
+		attackedSquares.white = [];
+	}else{
+		attackedSquares.black = [];
+	}
+
+	pieces.forEach(piece => {
+		if (piece.classList.contains('white')) {	
+			const attackingSquares = getAttackingSquares(piece);
+			attackingSquares.forEach(square => attackedSquares.white.push(square));
+		} else {	
+			const attackingSquares = getAttackingSquares(piece);
+			attackingSquares.forEach(square => attackedSquares.black.push(square));
+		}
+	});
+}
+
+function getAttackingSquares(pieceElement) {
+	const locX = parseInt(pieceElement.parentNode.getAttribute('column'));
+	const locY = parseInt(pieceElement.parentNode.getAttribute('row'));
+
+  
+	const attackingSquares = [];
+	if (pieceElement.classList.contains('wp')) {
+		const potentialHintSquares = [
+			document.querySelector(`[row="${locY+1}"][column="${locX-1}"]`),
+			document.querySelector(`[row="${locY+1}"][column="${locX+1}"]`)
+		];
+
+		potentialHintSquares.forEach(square => {
+			if (square) {
+				attackingSquares.push(square);
+			}
+		});
+	}else if(pieceElement.classList.contains("bp")){
+		const potentialHintSquares = [
+			document.querySelector(`[row="${locY-1}"][column="${locX-1}"]`),
+			document.querySelector(`[row="${locY-1}"][column="${locX+1}"]`)
+		];
+
+		potentialHintSquares.forEach(square => {
+			if (square) {
+				attackingSquares.push(square);
+			}
+		});
+	}else if(pieceElement.classList.contains("wk") || pieceElement.classList.contains("bk")){
+		const potentialHintSquares = [
+			document.querySelector(`[row="${locY+1}"][column="${locX}"]`),
+			document.querySelector(`[row="${locY+1}"][column="${locX+1}"]`),
+			document.querySelector(`[row="${locY+1}"][column="${locX-1}"]`),
+			document.querySelector(`[row="${locY}"][column="${locX-1}"]`),
+			document.querySelector(`[row="${locY}"][column="${locX+1}"]`),
+			document.querySelector(`[row="${locY-1}"][column="${locX}"]`),
+			document.querySelector(`[row="${locY-1}"][column="${locX+1}"]`),
+			document.querySelector(`[row="${locY-1}"][column="${locX-1}"]`),
+		];
+
+		potentialHintSquares.forEach(square => {
+			if (square) {
+				attackingSquares.push(square);
+			}
+		});
+	}else if(pieceElement.classList.contains("wq") || pieceElement.classList.contains("bq")){
+		const directions = [
+			{ dx: 1, dy: 0 }, //right
+			{ dx: -1, dy: 0 }, //left
+			{ dx: 0, dy: 1 }, //up
+			{ dx: 0, dy: -1 }, //down
+			{ dx: 1, dy: 1 }, //up right diagonal
+			{ dx: -1, dy: 1 }, //up left diagonal
+			{ dx: 1, dy: -1 }, //down right diagonal
+			{ dx: -1, dy: -1 } //down left diagonal
+		];
+		directions.forEach(direction => {
+			let x = locX + direction.dx;
+			let y = locY + direction.dy;
+			let continueInDirection = true;
+
+			while (x >= 1 && x <= 8 && y >= 1 && y <= 8 && continueInDirection) {
+				const square = document.querySelector(`[row="${y}"][column="${x}"]`);
+				if(square){
+					if(square.firstChild.classList.contains("piece")){
+						continueInDirection = false;
+					}
+					attackingSquares.push(square);
+				}
+				x += direction.dx;
+				y += direction.dy;
+			}
+		});
+	}else if(pieceElement.classList.contains("wb") || pieceElement.classList.contains("bb")){
+		const directions = [
+			{ dx: 1, dy: 1 }, //up right diagonal
+			{ dx: -1, dy: 1 }, //up left diagonal
+			{ dx: 1, dy: -1 }, //down right diagonal
+			{ dx: -1, dy: -1 } //down left diagonal
+		];
+		directions.forEach(direction => {
+			let x = locX + direction.dx;
+			let y = locY + direction.dy;
+			let continueInDirection = true;
+
+			while (x >= 1 && x <= 8 && y >= 1 && y <= 8 && continueInDirection) {
+				const square = document.querySelector(`[row="${y}"][column="${x}"]`);
+				if(square){
+					if(square.firstChild.classList.contains("piece")){
+						continueInDirection = false;
+					}
+					attackingSquares.push(square);
+				}else{
+					continueInDirection = false;
+				}
+				x += direction.dx;
+				y += direction.dy;
+			}
+		});
+	}else if(pieceElement.classList.contains("wn") || pieceElement.classList.contains("bn")){
+		const potentialHintSquares = [
+			document.querySelector(`[row="${locY+2}"][column="${locX+1}"]`),
+			document.querySelector(`[row="${locY+1}"][column="${locX+2}"]`),
+			document.querySelector(`[row="${locY-1}"][column="${locX+2}"]`),
+			document.querySelector(`[row="${locY-2}"][column="${locX+1}"]`),
+			document.querySelector(`[row="${locY-2}"][column="${locX-1}"]`),
+			document.querySelector(`[row="${locY-1}"][column="${locX-2}"]`),
+			document.querySelector(`[row="${locY+2}"][column="${locX-1}"]`),
+			document.querySelector(`[row="${locY+1}"][column="${locX-2}"]`),
+		];
+		potentialHintSquares.forEach(square => {
+			if (square) {
+				attackingSquares.push(square);
+			}
+		});
+	}else if(pieceElement.classList.contains("wr") || pieceElement.classList.contains("br")){
+		const directions = [
+			{ dx: 1, dy: 0 }, //right
+			{ dx: -1, dy: 0 }, //left
+			{ dx: 0, dy: 1 }, //up
+			{ dx: 0, dy: -1 }, //down
+		];
+		directions.forEach(direction => {
+			let x = locX + direction.dx;
+			let y = locY + direction.dy;
+			let continueInDirection = true;
+
+			while (x >= 1 && x <= 8 && y >= 1 && y <= 8 && continueInDirection) {
+				const square = document.querySelector(`[row="${y}"][column="${x}"]`);
+				if(square){
+					if(square.firstChild.classList.contains("piece")){
+						continueInDirection = false;
+					}
+					attackingSquares.push(square);
+				}else{
+					continueInDirection = false;
+				}
+				x += direction.dx;
+				y += direction.dy;
+			}
+		});
+	}
+	return attackingSquares;
 }
 
 
