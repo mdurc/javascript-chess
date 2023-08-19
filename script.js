@@ -1,12 +1,19 @@
 const board = document.querySelector(".board");
+const flipBoard = document.querySelector(".flip");
+const playComputer = document.querySelector(".computer");
+const toggleHints = document.querySelector(".toggleHints");
+const statusText = document.querySelector(".status");
+const moveHistory = document.querySelector(".moveHistory");
+moveHistory.setAttribute('style', 'white-space: pre;');
 
 let turn = document.querySelector(".turn");
-let statusText = document.querySelector(".status");
-let moveHistory = document.querySelector(".moveHistory");
-moveHistory.setAttribute('style', 'white-space: pre;');
 let isBlank = false;
 
+let hintTransparency = 0.2;
+
 let draggedPiece = null;
+let isDragging = false;
+
 let lastPressedPiece = null;
 let lastMove = null;
 let lastMoveOldSquare = null;
@@ -17,17 +24,24 @@ let newMove = null;
 let kingElementInCheck = null;
 let checkAttackingPiece = null;
 
-boardSetup();
-
-let pieces = document.querySelectorAll(".piece.white");
 const attackedSquares = {
 	white: [], 
 	black: [],
 };
 
+boardSetup(); //creates piece elements
+let pieces = document.querySelectorAll(".piece.white"); //white goes first
+
 updateAttackedSquares();
 
-let isDragging = false;
+toggleHints.addEventListener('click', (event)=>{
+	if(hintTransparency === 0.2){
+		hintTransparency = 0;
+	}else{
+		hintTransparency = 0.2;
+	}
+});
+
 
 function updateMoveHistory(){
 	let nextMove = lastMoveText.substring(1);
@@ -412,11 +426,11 @@ document.addEventListener('mouseup', () => {
 });
 
 
-
-
 function boardSetup() {
+	let visualBoardCoords = "";
 	for (let r = 8; r >=1 ; r--) {
 		for(let c = 1; c<=8; c++){
+			visualBoardCoords+= c.toString()+r.toString()+ " | ";
 			let square = document.createElement("div");
 			square.classList.add("square");
 
@@ -432,7 +446,9 @@ function boardSetup() {
 			}
 			board.appendChild(square);
 		}
+		visualBoardCoords+="\n";
 	}
+	console.log(visualBoardCoords);
 }
 
 
@@ -589,9 +605,10 @@ function hint(pieceElement, blankSquare, direction, locX, locY, checkingForMate 
 			if(blankSquare.querySelector(`.piece.${getPieceColor(pieceElement)}`)==null){
 				let hint = document.createElement("div");
 				hint.classList.add("hint");
+				hint.style.backgroundColor = `rgba(0, 0, 0, ${hintTransparency})`;
 				if(blankSquare.querySelector(".piece.black")){
 					hint.style.backgroundColor = "transparent";
-					hint.style.border = '4px solid rgba(0, 0, 0, 0.2)';
+					hint.style.border = `4px solid rgba(0, 0, 0, ${hintTransparency})`;
 					hint.style.width = '60px';
 					hint.style.height = '60px';
 				}
@@ -819,7 +836,7 @@ function searchForCapturingPinner(pieceElement) {
     let pieceColor = getPieceColor(pieceElement);
 	let kingColor = (pieceColor === "white") ? "wk" : "bk";
     let opponentColor = (pieceColor === "white") ? "black" : "white";
-	let oppenentAbbrev = opponentColor.substring(0,1);
+	let opponentAbbrev = opponentColor.substring(0,1);
 	
 
     const directions = [
@@ -868,12 +885,12 @@ function searchForCapturingPinner(pieceElement) {
 					if(square.firstChild.classList.contains("piece") && square.firstChild.classList.contains(pieceColor)){
 						return [false, null, lastPressedPiece];
 					}else if (square.firstChild.classList.contains("piece") && square.firstChild.classList.contains(opponentColor)) {
-						if((oppositeDirection.name === "right" || oppositeDirection.name === "left" || oppositeDirection.name === "up" || oppositeDirection.name === "down") && square.firstChild.classList.contains(`${oppenentAbbrev}r`) || square.firstChild.classList.contains(`${oppenentAbbrev}q`)){
+						if((oppositeDirection.name === "right" || oppositeDirection.name === "left" || oppositeDirection.name === "up" || oppositeDirection.name === "down") && square.firstChild.classList.contains(`${opponentAbbrev}r`) || square.firstChild.classList.contains(`${opponentAbbrev}q`)){
 							console.log(`King is located ${kingDirection} of the pinned piece.`);
 							console.log(`Next piece in the opposite direction: ${square.firstChild.classList[1]}`);
 							return [true, oppositeDirection.name, square.firstChild];
 
-						}else if((oppositeDirection.name === "up right diagonal" || oppositeDirection.name === "up left diagonal" || oppositeDirection.name === "down right diagonal" || oppositeDirection.name === "down left diagonal") && square.firstChild.classList.contains(`${oppenentAbbrev}b`) || square.firstChild.classList.contains(`${oppenentAbbrev}q`)){
+						}else if((oppositeDirection.name === "up right diagonal" || oppositeDirection.name === "up left diagonal" || oppositeDirection.name === "down right diagonal" || oppositeDirection.name === "down left diagonal") && square.firstChild.classList.contains(`${opponentAbbrev}b`) || square.firstChild.classList.contains(`${opponentAbbrev}q`)){
 							console.log(`King is located ${kingDirection} of the pinned piece.`);
 							console.log(`Next piece in the opposite direction: ${square.firstChild.classList[1]}`);
 							return [true, oppositeDirection.name, square.firstChild];

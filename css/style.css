@@ -11,17 +11,24 @@ body{
 	position: absolute;
 	left: 10%;	
 }
+.buttons{
+	position: absolute;
+	right: 10%;
+
+	display: flex;
+	flex-direction: column;
+	gap: 20px;
+}
 
 @media (max-width: 975px) {
 	.history {
-		left: 5%;
+		display: none;
 	}
-}
-@media (max-width: 860px) {
-	.history {
+	.buttons{
 		display: none;
 	}
 }
+
 .column{
 	display: flex;
 	flex-direction: column;
@@ -63,7 +70,6 @@ body{
 
 .hint{
 	position: absolute;
-	background-color: rgba(0,0,0,.1);
 	border-radius: 50%;
 
 	height: 25px;
