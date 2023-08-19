@@ -1,10 +1,39 @@
 const board = document.querySelector(".board");
 
 let turn = document.querySelector(".turn");
+let statusText = document.querySelector(".status");
+let moveHistory = document.querySelector(".moveHistory");
+moveHistory.setAttribute('style', 'white-space: pre;');
 let isBlank = false;
 
 let draggedPiece = null;
 let lastPressedPiece = null;
+let lastMove = null;
+let lastMoveOldSquare = null;
+let lastMoveToSquare = null;
+let lastMoveText = null;
+let newMove = null;
+let currentColor = getRandomColor();
+let currentColorBlack = getRandomColor();
+
+let kingElementInCheck = null;
+let checkAttackingPiece = null;
+
+function updateMoveHistory(){
+	let nextMove = lastMoveText.substring(1);
+	if (/^[1-8]$/.test(lastMoveText[0])) {
+		lastMoveText = String.fromCharCode(96 + parseInt(lastMoveText[0])) + nextMove;
+	}
+	lastMoveText +=" to ";
+
+	nextMove = newMove.substring(1);
+	if (/^[1-8]$/.test(newMove[0])) {
+		newMove = String.fromCharCode(96 + parseInt(newMove[0])) + nextMove;
+	}
+
+	lastMoveText += newMove;
+	moveHistory.textContent += lastMoveText+ "\r\n";
+}
 
 boardSetup();
 
@@ -21,16 +50,29 @@ updateAttackedSquares();
 
 let isDragging = false;
 
-function swapNodes(lastPressedPiece, square){	
+function swapNodes(lastPressedPiece, emptySquare){	
+	lastMove = lastPressedPiece;
+	lastMoveOldSquare = lastPressedPiece.parentNode;
+	lastMoveToSquare = emptySquare.parentNode;
+	lastMoveText = lastPressedPiece.parentNode.getAttribute("column")+lastPressedPiece.parentNode.getAttribute("row");
+	newMove = emptySquare.parentNode.getAttribute("column")+emptySquare.parentNode.getAttribute("row");
+	updateMoveHistory();
+
+	if(emptySquare.classList.contains("passant")){
+		let capturedPawnSquare = document.querySelector(`[row="${parseInt(lastPressedPiece.parentNode.getAttribute("row"))}"][column="${parseInt(emptySquare.parentNode.getAttribute("column"))}"]`);
+		console.log(capturedPawnSquare);
+		capturedPawnSquare.firstChild.remove();
+		capturedPawnSquare.appendChild(newEmpty());
+	}
+
 	lastPressedPiece.parentNode.appendChild(newEmpty());
-	square.parentNode.appendChild(lastPressedPiece);  
+	emptySquare.parentNode.appendChild(lastPressedPiece);  
 	removeHints();
-	square.remove();
+	emptySquare.remove();
 	updateAttackedSquares();
-	console.log(attackedSquares.white);
-	console.log(attackedSquares.black);
-	console.log(isSquareAttackedByColor(3,5,"black"));
+	isKingChecked();
 }
+
 
 function movePiecePosition(lastPressedPiece, square){//lastPressedPiece is the actual piece element. Square is the empty div element
 	if(lastPressedPiece.classList.contains("wr") && lastPressedPiece.getAttribute("data-moved")=="false" || lastPressedPiece.classList.contains("br") && lastPressedPiece.getAttribute("data-moved")=="false"){
@@ -65,8 +107,12 @@ function movePiecePosition(lastPressedPiece, square){//lastPressedPiece is the a
 
 
 document.addEventListener('mousedown', (event)=>{
-	if (event.target.parentNode.querySelector('.hint') && event.target.tagName!="BODY") {
-		const square = event.target;
+	if (event.target.parentNode.querySelector('.hint') && event.target.closest(".board")) {
+		let square = event.target.parentNode.querySelector(".empty");
+		if(!square){
+			square = event.target.parentNode.querySelector(".piece");
+		}
+
 		const squareRect = square.getBoundingClientRect();
 		const mouseX = event.clientX;
 		const mouseY = event.clientY;
@@ -79,7 +125,9 @@ document.addEventListener('mousedown', (event)=>{
 			movePiecePosition(lastPressedPiece,square);
 			switchTurn();
 		}
-    }
+    }else if (!event.target.closest(".board")){
+		removeHints();
+	}
 });
 
 function allowPieceMovement(){
@@ -106,9 +154,75 @@ const mousedownDrag = (event) => {
         draggedPiece.style.left = offsetX + 'px';
 		draggedPiece.style.top = offsetY + 'px';
         document.addEventListener('mousemove', movePiece);
-		searchMoves(draggedPiece);
+		
+
+		let maybePin = searchForCapturingPinner(draggedPiece);
+		if(maybePin[0]){ //piece is pinned
+			console.log("actually pinned");
+		}
+		if(kingElementInCheck){
+			console.log("isInCheckStill");
+			let possibleMoves = [];
+			console.log(checkAttackingPiece);	
+			if(isPieceAdjacentToKing(checkAttackingPiece, kingElementInCheck)){
+				possibleMoves.push(checkAttackingPiece.parentNode);
+				searchMoves(draggedPiece, maybePin[1], possibleMoves);
+			}else{
+				possibleMoves.push(checkAttackingPiece.parentNode);
+				let totalPossible = possibleMoves.concat(getRequiredMovesFromCheck(checkAttackingPiece, kingElementInCheck));
+				searchMoves(draggedPiece, maybePin[1], totalPossible);
+			}
+		}else{
+			searchMoves(draggedPiece, maybePin[1]);
+		}
+		
 
 };
+
+
+
+function isPieceAdjacentToKing(pieceElement, kingElement) {
+	const kingRow = parseInt(kingElement.parentNode.getAttribute("row"));
+    const kingColumn = parseInt(kingElement.parentNode.getAttribute("column"));
+
+    const pieceRow = parseInt(pieceElement.parentNode.getAttribute("row"));
+    const pieceColumn = parseInt(pieceElement.parentNode.getAttribute("column"));
+
+    return Math.abs(pieceRow - kingRow) <= 1 && Math.abs(pieceColumn - kingColumn) <= 1;
+}
+function getRequiredMovesFromCheck(pieceElement, kingElement){
+	if(pieceElement.classList.contains("knight")){
+		return [];
+	}
+	
+    const kingRow = parseInt(kingElement.parentNode.getAttribute("row"));
+    const kingColumn = parseInt(kingElement.parentNode.getAttribute("column"));
+
+    const pieceRow = parseInt(pieceElement.parentNode.getAttribute("row"));
+    const pieceColumn = parseInt(pieceElement.parentNode.getAttribute("column"));
+
+    const requiredMoves = [];
+
+    const rowDirection = Math.sign(pieceRow - kingRow);
+	console.log("rowDir: ",rowDirection);
+    const columnDirection = Math.sign(pieceColumn - kingColumn);
+	console.log("colDir: ", columnDirection);
+
+	let locX = kingColumn + columnDirection;
+    let locY = kingRow + rowDirection;
+	while (locX !== pieceColumn || locY !== pieceRow) {
+        const emptySquare = document.querySelector(`[row="${locY}"][column="${locX}"]`);
+        if (emptySquare && emptySquare.firstChild.classList.contains("empty")) {
+            requiredMoves.push(emptySquare);
+        }
+
+        locX += columnDirection;
+        locY += rowDirection;
+    }
+
+    return requiredMoves;
+}
+
 function movePiece(event) {
 		if (isDragging && draggedPiece) {
 			draggedPiece.style.left = (event.clientX - draggedPiece.offsetWidth / 2) + 'px';
@@ -138,25 +252,23 @@ document.addEventListener('mouseup', () => {
         //Determine the square element based on mouse location
 		const mouseX = event.clientX;
 		const mouseY = event.clientY;
-		const emptySquares = document.querySelectorAll('.square.empty');
+		const emptySquares = document.querySelectorAll('.hint');
 		let droppedOnSquare = null;
 
 		emptySquares.forEach(square => {
-			const hasHint = square.parentNode.querySelector(".hint");
-			const squareRect = square.getBoundingClientRect();
+			const squareRect = square.parentNode.getBoundingClientRect();
 			if (
 				mouseX >= squareRect.left &&
 				mouseX <= squareRect.right &&
 				mouseY >= squareRect.top &&
-				mouseY <= squareRect.bottom &&
-				hasHint != null
-			) {
+				mouseY <= squareRect.bottom
+			) {			
 				droppedOnSquare = square;
 			}
 		});
 
 		if (droppedOnSquare) {
-			const squareRect = droppedOnSquare.getBoundingClientRect();
+			const squareRect = droppedOnSquare.parentNode.getBoundingClientRect();
 			const pieceWidth = draggedPiece.offsetWidth;
 			const pieceHeight = draggedPiece.offsetHeight;
 
@@ -165,8 +277,20 @@ document.addEventListener('mouseup', () => {
 
 			draggedPiece.style.left = centerX + 'px';
 			draggedPiece.style.top = centerY + 'px';
-
-			movePiecePosition(draggedPiece, droppedOnSquare);
+			//center it initially, then leave it in place there with the div, moving with the board.
+			draggedPiece.style.position = '';
+			draggedPiece.style.zIndex = '';
+			draggedPiece.style.width = '';
+			draggedPiece.style.height = '';
+			draggedPiece.style.left = '';
+			draggedPiece.style.top = '';
+			
+			if(droppedOnSquare.parentNode.querySelector(".empty")){
+				movePiecePosition(draggedPiece, droppedOnSquare.parentNode.querySelector(".empty"));
+			}else{
+				movePiecePosition(draggedPiece, droppedOnSquare.parentNode.querySelector(".piece"));
+			}
+			
 			switchTurn();
 
 		} else {
@@ -230,6 +354,7 @@ function pieceSetup(square, r, c) {
 	}else if(r==1&&c==2 || r==1&&c==7){
 		startPiece.classList.add("piece");
 		startPiece.classList.add("wn");
+		startPiece.classList.add("knight");
 		startPiece.classList.add("white");
 		startPiece.src = "./pieceImages/wn.png";
 	}else if(r==1&&c==3 || r==1&&c==6){
@@ -246,6 +371,7 @@ function pieceSetup(square, r, c) {
 		startPiece.classList.add("piece");
 		startPiece.classList.add("wk");
 		startPiece.classList.add("white");
+		startPiece.classList.add("king");
 		startPiece.src = "./pieceImages/wk.png";
 		startPiece.setAttribute("data-moved", "false");
 	}else if(r==8&&c==1 || r==8&&c==8){
@@ -257,6 +383,7 @@ function pieceSetup(square, r, c) {
 	}else if(r==8&&c==2 || r==8&&c==7){
 		startPiece.classList.add("piece");
 		startPiece.classList.add("bn");
+		startPiece.classList.add("knight");
 		startPiece.classList.add("black");
 		startPiece.src = "./pieceImages/bn.png";
 	}else if(r==8&&c==3 || r==8&&c==6){
@@ -273,6 +400,7 @@ function pieceSetup(square, r, c) {
 		startPiece.classList.add("piece");
 		startPiece.classList.add("bk");
 		startPiece.classList.add("black");
+		startPiece.classList.add("king");
 		startPiece.src = "./pieceImages/bk.png";
 		startPiece.setAttribute("data-moved", "false");
 	}else{
@@ -304,19 +432,99 @@ function newEmpty() {
 }
 
 function removeHints(){
-	const hintsToRemove = document.querySelectorAll(".square .hint")
+	const hintsToRemove = document.querySelectorAll(".square .hint");
+	const passantsToRemove = document.querySelectorAll(".empty.passant");
 
 	hintsToRemove.forEach(hint => {
 		hint.remove();
 	});
+	passantsToRemove.forEach(passant => {
+		console.log(passant);
+		passant.classList.remove("passant");
+	});
 }
 
-function hint(blankSquare) {
-	if (blankSquare.querySelector(".hint") == null && blankSquare.querySelector(".piece")==null) {
-		let hint = document.createElement("div");
-		hint.classList.add("hint");
+function getPieceColor(pieceElement){
+	let pieceColor = pieceElement.classList.contains("white") ? "white" : "black";
+	return pieceColor;
+}
 
-		blankSquare.appendChild(hint);
+
+function hint(pieceElement, blankSquare, direction, locX, locY, checkingForMate = false) {
+	let hasOption = false;
+	let squaresInDirection = [];
+	const directions = [
+        { dx: 1, dy: 0, name: "right" }, //right
+        { dx: -1, dy: 0, name: "left" }, //left
+        { dx: 0, dy: 1, name: "up" }, //up
+        { dx: 0, dy: -1, name: "down" }, //down
+        { dx: 1, dy: 1, name: "up right diagonal" }, //up right diagonal
+        { dx: -1, dy: 1, name: "up left diagonal" }, //up left diagonal
+        { dx: 1, dy: -1, name: "down right diagonal" }, //down right diagonal
+        { dx: -1, dy: -1, name: "down left diagonal" } //down left diagonal
+    ];
+	if (direction) {
+        const selectedDirection = directions.find(d => d.name === direction);
+		if(selectedDirection){
+			for (let i = 1; i <= 8; i++) {
+				const x = locX + i * selectedDirection.dx;
+				const y = locY + i * selectedDirection.dy;
+				const square = document.querySelector(`[row="${y}"][column="${x}"]`);
+
+				if (square) {
+					squaresInDirection.push(square);
+				}else{
+					i = 9;
+				}
+			}
+		}
+    }
+		if(turn.textContent.toLowerCase() == "white"){
+			if(blankSquare.querySelector(".piece.white")==null){
+				let hint = document.createElement("div");
+				hint.classList.add("hint");
+				if(blankSquare.querySelector(".piece.black")){
+					hint.style.backgroundColor = "transparent";
+					hint.style.border = '4px solid rgba(0, 0, 0, 0.2)';
+					hint.style.width = '60px';
+					hint.style.height = '60px';
+				}
+				if(squaresInDirection.length>0){
+					if(squaresInDirection.includes(blankSquare)){
+						blankSquare.appendChild(hint);
+						hasOption = true;
+					}
+				}else{
+					blankSquare.appendChild(hint);
+					hasOption = true;
+				}
+			}
+		}else{
+			if(blankSquare.querySelector(".piece.black")==null){
+				let hint = document.createElement("div");
+				hint.classList.add("hint");
+				if(blankSquare.querySelector(".piece.white")){
+					hint.style.backgroundColor = "transparent";
+					hint.style.border = '4px solid rgba(0, 0, 0, 0.2)';
+					hint.style.width = '60px';
+					hint.style.height = '60px';
+				}
+				if(direction){
+					if(squaresInDirection.includes(blankSquare)){
+						blankSquare.appendChild(hint);
+						hasOption = true;
+					}
+				}else{
+					blankSquare.appendChild(hint);
+					hasOption = true;
+				}
+			}
+		}
+	if(checkingForMate){
+		removeHints();
+		console.log("OKI");
+		console.log(hasOption);
+		return hasOption;
 	}
 }
 
@@ -335,25 +543,239 @@ function switchTurn(){
 
 	allowPieceMovement()
 }
+function getOppositeDirectionName(direction) {
+    const oppositeDirectionMap = {
+        "up": "down",
+        "down": "up",
+        "left": "right",
+        "right": "left",
+        "up right diagonal": "down left diagonal",
+        "up left diagonal": "down right diagonal",
+        "down right diagonal": "up left diagonal",
+        "down left diagonal": "up right diagonal"
+    };
 
-function searchMoves(pieceElement){
+    return oppositeDirectionMap[direction];
+}
+
+function searchForCapturingPinner(pieceElement) {
+    let locX = parseInt(pieceElement.parentNode.getAttribute("column"));
+    let locY = parseInt(pieceElement.parentNode.getAttribute("row"));
+    let pieceColor = getPieceColor(pieceElement);
+	let kingColor = (pieceColor === "white") ? "wk" : "bk";
+    let opponentColor = (pieceColor === "white") ? "black" : "white";
+	let oppenentAbbrev = opponentColor.substring(0,1);
+	
+
+    const directions = [
+        { dx: 1, dy: 0, name: "right" }, //right
+        { dx: -1, dy: 0, name: "left" }, //left
+        { dx: 0, dy: 1, name: "up" }, //up
+        { dx: 0, dy: -1, name: "down" }, //down
+        { dx: 1, dy: 1, name: "up right diagonal" }, //up right diagonal
+        { dx: -1, dy: 1, name: "up left diagonal" }, //up left diagonal
+        { dx: 1, dy: -1, name: "down right diagonal" }, //down right diagonal
+        { dx: -1, dy: -1, name: "down left diagonal" } //down left diagonal
+    ];
+
+    let kingDirection = null;
+
+    for (const direction of directions) {
+        let x = locX + direction.dx;
+        let y = locY + direction.dy;
+        let continueInDirection = true;
+
+        while (x >= 1 && x <= 8 && y >= 1 && y <= 8 && continueInDirection) {
+            const square = document.querySelector(`[row="${y}"][column="${x}"]`);
+            if (square) {
+                if (square.firstChild.classList.contains("piece")) {
+					if (kingDirection === null && square.firstChild.classList.contains(kingColor)) {
+                        kingDirection = direction.name;
+                    }else {
+                        continueInDirection = false; // Stop checking this direction
+                    }
+				}
+            }
+            x += direction.dx;
+            y += direction.dy;
+        }
+    }
+
+    if (kingDirection) {
+		const oppositeDirection = directions.find(d => d.name === getOppositeDirectionName(kingDirection));
+        if (oppositeDirection) {
+            let x = locX + oppositeDirection.dx;
+            let y = locY + oppositeDirection.dy;
+
+            while (x >= 1 && x <= 8 && y >= 1 && y <= 8) {
+                const square = document.querySelector(`[row="${y}"][column="${x}"]`);
+                if (square) {
+					if(square.firstChild.classList.contains("piece") && square.firstChild.classList.contains(pieceColor)){
+						return [false, null];
+					}else if (square.firstChild.classList.contains("piece") && square.firstChild.classList.contains(opponentColor)) {
+						if((oppositeDirection.name === "right" || oppositeDirection.name === "left" || oppositeDirection.name === "up" || oppositeDirection.name === "down") && square.firstChild.classList.contains(`${oppenentAbbrev}r`) || square.firstChild.classList.contains(`${oppenentAbbrev}q`)){
+							console.log(`King is located ${kingDirection} of the pinned piece.`);
+							console.log(`Next piece in the opposite direction: ${square.firstChild.classList[1]}`);
+							return [true, oppositeDirection.name];
+
+						}else if((oppositeDirection.name === "up right diagonal" || oppositeDirection.name === "up left diagonal" || oppositeDirection.name === "down right diagonal" || oppositeDirection.name === "down left diagonal") && square.firstChild.classList.contains(`${oppenentAbbrev}b`) || square.firstChild.classList.contains(`${oppenentAbbrev}q`)){
+							console.log(`King is located ${kingDirection} of the pinned piece.`);
+							console.log(`Next piece in the opposite direction: ${square.firstChild.classList[1]}`);
+							return [true, oppositeDirection.name];
+						}
+                    }
+                }
+                x += oppositeDirection.dx;
+                y += oppositeDirection.dy;
+            }
+        }
+    }
+
+	return [false, null];
+}
+
+function searchMoves(pieceElement, pinForceDirection = null, mustGoSquare = null, checkingForMate = false){
 	let locX = parseInt(pieceElement.parentNode.getAttribute("column"));
 	let locY = parseInt(pieceElement.parentNode.getAttribute("row"));
 
 	if(pieceElement.classList.contains("wp")){
-		hint(document.querySelector(`[row="${locY+1}"][column="${locX}"]`));
-		if(locY == 2){
-			if(document.querySelector(`[row="${locY+1}"][column="${locX}"]`).querySelector(".piece")==null){
-				hint(document.querySelector(`[row="${locY+2}"][column="${locX}"]`));
+		let oneForward =  document.querySelector(`[row="${locY+1}"][column="${locX}"]`);
+		let twoForward =  document.querySelector(`[row="${locY+2}"][column="${locX}"]`);
+		if(oneForward && oneForward.querySelector(".piece")==null){
+			if (!mustGoSquare || mustGoSquare.includes(oneForward)) {
+				if(checkingForMate){
+					return hint(pieceElement, oneForward, pinForceDirection, locX, locY, checkingForMate);
+				}else{
+					hint(pieceElement, oneForward, pinForceDirection, locX, locY, checkingForMate);
+				}
 			}
 		}
+		if(twoForward && twoForward.querySelector(".piece")==null && oneForward && oneForward.querySelector(".piece")==null && locY==2){
+			if(!mustGoSquare || mustGoSquare.includes(twoForward)){
+				if(checkingForMate){
+					return hint(pieceElement, twoForward, pinForceDirection, locX, locY, checkingForMate);
+				}else{
+					hint(pieceElement, twoForward, pinForceDirection, locX, locY, checkingForMate);
+				}
+			}
+		}
+
+
+		let attackSquareRight = document.querySelector(`[row="${locY+1}"][column="${locX+1}"]`);
+		let attackSquareLeft = document.querySelector(`[row="${locY+1}"][column="${locX-1}"]`);
+
+		if(attackSquareRight && attackSquareRight.querySelector(".piece")){
+			if(!mustGoSquare || mustGoSquare.includes(attackSquareRight)){
+				if(checkingForMate){
+					return hint(pieceElement, attackSquareRight, pinForceDirection, locX, locY, checkingForMate);
+				}else{
+					hint(pieceElement, attackSquareRight, pinForceDirection, locX, locY, checkingForMate);
+				}
+			}
+		}
+		if(attackSquareLeft && attackSquareLeft.querySelector(".piece")){
+			if(!mustGoSquare || mustGoSquare.includes(attackSquareLeft)){
+				if(checkingForMate){
+					return hint(pieceElement, attackSquareLeft, pinForceDirection, locX, locY, checkingForMate);
+				}else{
+					hint(pieceElement, attackSquareLeft, pinForceDirection, locX, locY, checkingForMate);
+				}
+			}
+		}
+
+		let passents = [];
+		const potentialEnPassantSquareOne = document.querySelector(`[row="${locY+1}"][column="${locX-1}"]`);
+		const potentialEnPassantSquareTwo = document.querySelector(`[row="${locY+1}"][column="${locX+1}"]`);
+		passents.push(potentialEnPassantSquareOne);
+		passents.push(potentialEnPassantSquareTwo);
+
+		passents.forEach(potentialEnPassantSquare => {
+			if (potentialEnPassantSquare){
+				if(lastMove && lastMove.classList.contains("bp")){
+					if (
+						Math.abs(parseInt(lastMoveToSquare.getAttribute("row")) - parseInt(lastMoveOldSquare.getAttribute("row"))) == 2 && lastMoveToSquare.getAttribute("column") == potentialEnPassantSquare.getAttribute("column") && pieceElement.parentNode.getAttribute("row") == "5"
+					) {
+						if(!mustGoSquare || mustGoSquare.includes(potentialEnPassantSquare)){
+							potentialEnPassantSquare.querySelector(".empty").classList.add("passant");
+							if(checkingForMate){
+								return hint(pieceElement, potentialEnPassantSquare, pinForceDirection, locX, locY, checkingForMate);
+							}else{
+								hint(pieceElement, potentialEnPassantSquare, pinForceDirection, locX, locY, checkingForMate);
+							}
+						}
+					}
+				}
+			}
+		});
+		
 	}else if(pieceElement.classList.contains("bp")){
-		hint(document.querySelector(`[row="${locY-1}"][column="${locX}"]`));
-		if(locY == 7){
-			if(document.querySelector(`[row="${locY-1}"][column="${locX}"]`).querySelector(".piece")==null){
-				hint(document.querySelector(`[row="${locY-2}"][column="${locX}"]`));
+		let oneForward =  document.querySelector(`[row="${locY-1}"][column="${locX}"]`);
+		let twoForward =  document.querySelector(`[row="${locY-2}"][column="${locX}"]`);
+		if(oneForward && oneForward.querySelector(".piece")==null){
+			if(!mustGoSquare || mustGoSquare.includes(oneForward)){
+				if(checkingForMate){
+					return hint(pieceElement, oneForward, pinForceDirection, locX, locY, checkingForMate);
+				}else{
+					hint(pieceElement, oneForward, pinForceDirection, locX, locY, checkingForMate);
+				}
 			}
 		}
+		if(twoForward && twoForward.querySelector(".piece")==null && oneForward && oneForward.querySelector(".piece")==null && locY==7){
+			if(!mustGoSquare || mustGoSquare.includes(twoForward)){
+				if(checkingForMate){
+					return hint(pieceElement, twoForward, pinForceDirection, locX, locY, checkingForMate);
+				}else{
+					hint(pieceElement, twoForward, pinForceDirection, locX, locY, checkingForMate);
+				}
+			}
+		}
+		
+		let attackSquareRight = document.querySelector(`[row="${locY-1}"][column="${locX+1}"]`);
+		let attackSquareLeft = document.querySelector(`[row="${locY-1}"][column="${locX-1}"]`);
+
+		if(attackSquareRight && attackSquareRight.querySelector(".piece")){
+			if(!mustGoSquare || mustGoSquare.includes(attackSquareRight)){
+				if(checkingForMate){
+					return hint(pieceElement, attackSquareRight, pinForceDirection, locX, locY, checkingForMate);
+				}else{
+					hint(pieceElement, attackSquareRight, pinForceDirection, locX, locY, checkingForMate);
+				}
+			}
+		}
+		if(attackSquareLeft && attackSquareLeft.querySelector(".piece")){
+			if(!mustGoSquare || mustGoSquare.includes(attackSquareLeft)){
+				if(checkingForMate){
+					return hint(pieceElement, attackSquareLeft, pinForceDirection, locX, locY, checkingForMate);
+				}else{
+					hint(pieceElement, attackSquareLeft, pinForceDirection, locX, locY, checkingForMate);
+				}
+			}
+		}
+
+		let passents = [];
+		const potentialEnPassantSquareOne = document.querySelector(`[row="${locY-1}"][column="${locX-1}"]`);
+		const potentialEnPassantSquareTwo = document.querySelector(`[row="${locY-1}"][column="${locX+1}"]`);
+		passents.push(potentialEnPassantSquareOne);
+		passents.push(potentialEnPassantSquareTwo);
+
+		passents.forEach(potentialEnPassantSquare => {
+			if (potentialEnPassantSquare){
+				if(lastMove && lastMove.classList.contains("wp")){
+					if (
+						Math.abs(parseInt(lastMoveToSquare.getAttribute("row")) - parseInt(lastMoveOldSquare.getAttribute("row"))) == 2 && lastMoveToSquare.getAttribute("column") == potentialEnPassantSquare.getAttribute("column") && pieceElement.parentNode.getAttribute("row") == "4"
+					) {
+						if(!mustGoSquare || mustGoSquare.includes(potentialEnPassantSquare)){
+							potentialEnPassantSquare.querySelector(".empty").classList.add("passant");
+							if(checkingForMate){
+								return hint(pieceElement, potentialEnPassantSquare, pinForceDirection, locX, locY, checkingForMate);
+							}else{
+								hint(pieceElement, potentialEnPassantSquare, pinForceDirection, locX, locY, checkingForMate);
+							}
+						}
+					}
+				}
+			}
+		});
 	}else if(pieceElement.classList.contains("wk") || pieceElement.classList.contains("bk")){
 		const potentialHintSquares = [
 			document.querySelector(`[row="${locY+1}"][column="${locX}"]`),
@@ -366,29 +788,40 @@ function searchMoves(pieceElement){
 			document.querySelector(`[row="${locY-1}"][column="${locX-1}"]`),
 		];
 
+
 		if (pieceElement.getAttribute("data-moved") === "false") {
 			const rookRight = document.querySelector(`[row="${locY}"][column="${locX + 3}"]`);
 			const rookLeft = document.querySelector(`[row="${locY}"][column="${locX - 4}"]`);
 
 			if (rookRight && rookRight.firstChild && rookRight.firstChild.classList.contains("piece") && rookRight.firstChild.getAttribute("data-moved") === "false") {
-				potentialHintSquares.push(document.querySelector(`[row="${locY}"][column="${locX + 2}"]`));
+				if(kingElementInCheck==null){
+					potentialHintSquares.push(document.querySelector(`[row="${locY}"][column="${locX + 2}"]`));
+				}
 			}
 
 			if (rookLeft && rookLeft.firstChild && rookLeft.firstChild.classList.contains("piece") && rookLeft.firstChild.getAttribute("data-moved") === "false") {
-				potentialHintSquares.push(document.querySelector(`[row="${locY}"][column="${locX - 2}"]`));
+				if(kingElementInCheck==null){
+					potentialHintSquares.push(document.querySelector(`[row="${locY}"][column="${locX - 2}"]`));
+				}
 			}
 		}
 		potentialHintSquares.forEach(square => {
 			if (square) {
 				if(turn.textContent.toLowerCase() == "white" && isSquareAttackedByColor(parseInt(square.getAttribute("row")), parseInt(square.getAttribute("column")), "black")){
-
+				
 				}else if(turn.textContent.toLowerCase() == "black" && isSquareAttackedByColor(parseInt(square.getAttribute("row")), parseInt(square.getAttribute("column")), "white")){
-
+					
 				}else{
-					hint(square);
+					//doesnt need mustGo, because the king cant block
+					if(checkingForMate){
+						return hint(pieceElement, square, pinForceDirection, locX, locY, checkingForMate);
+					}else{
+						hint(pieceElement, square, pinForceDirection, locX, locY, checkingForMate);
+					}
 				}
 			}
 		});
+		
 	}else if(pieceElement.classList.contains("wq") || pieceElement.classList.contains("bq")){
 		const directions = [
 			{ dx: 1, dy: 0 }, //right
@@ -407,8 +840,17 @@ function searchMoves(pieceElement){
 
 			while (x >= 1 && x <= 8 && y >= 1 && y <= 8 && continueInDirection) {
 				const square = document.querySelector(`[row="${y}"][column="${x}"]`);
-				if(square && square.firstChild.classList.contains("empty")){
-					hint(square);
+				if(square){
+					if(square.firstChild.classList.contains("piece")){
+						continueInDirection = false;
+					}
+					if(!mustGoSquare || mustGoSquare.includes(square)){
+						if(checkingForMate){
+							return hint(pieceElement, square, pinForceDirection, locX, locY, checkingForMate);
+						}else{
+							hint(pieceElement, square, pinForceDirection, locX, locY, checkingForMate);
+						}
+					}
 				}else{
 					continueInDirection = false;
 				}
@@ -430,8 +872,17 @@ function searchMoves(pieceElement){
 
 			while (x >= 1 && x <= 8 && y >= 1 && y <= 8 && continueInDirection) {
 				const square = document.querySelector(`[row="${y}"][column="${x}"]`);
-				if(square && square.firstChild.classList.contains("empty")){
-					hint(square);
+				if(square){
+					if(square.firstChild.classList.contains("piece")){
+						continueInDirection = false;
+					}
+					if(!mustGoSquare || mustGoSquare.includes(square)){
+						if(checkingForMate){
+							return hint(pieceElement, square, pinForceDirection, locX, locY, checkingForMate);
+						}else{
+							hint(pieceElement, square, pinForceDirection, locX, locY, checkingForMate);
+						}
+					}
 				}else{
 					continueInDirection = false;
 				}
@@ -452,7 +903,13 @@ function searchMoves(pieceElement){
 		];
 		potentialHintSquares.forEach(square => {
 			if (square) {
-				hint(square);
+				if(!mustGoSquare || mustGoSquare.includes(square)){
+					if(checkingForMate){
+						return hint(pieceElement, square, pinForceDirection, locX, locY, checkingForMate);
+					}else{
+						hint(pieceElement, square, pinForceDirection, locX, locY, checkingForMate);
+					}
+				}
 			}
 		});
 	}else if(pieceElement.classList.contains("wr") || pieceElement.classList.contains("br")){
@@ -469,8 +926,17 @@ function searchMoves(pieceElement){
 
 			while (x >= 1 && x <= 8 && y >= 1 && y <= 8 && continueInDirection) {
 				const square = document.querySelector(`[row="${y}"][column="${x}"]`);
-				if(square && square.firstChild.classList.contains("empty")){
-					hint(square);
+				if(square){
+					if(square.firstChild.classList.contains("piece")){
+						continueInDirection = false;
+					}
+					if(!mustGoSquare || mustGoSquare.includes(square)){
+						if(checkingForMate){
+							return hint(pieceElement, square, pinForceDirection, locX, locY, checkingForMate);
+						}else{
+							hint(pieceElement, square, pinForceDirection, locX, locY, checkingForMate);
+						}
+					}
 				}else{
 					continueInDirection = false;
 				}
@@ -479,7 +945,6 @@ function searchMoves(pieceElement){
 			}
 		});
 	}
-
 }
 
 
@@ -494,31 +959,105 @@ function isSquareAttackedByColor(row, column, color) {
 	}
 	return false;
 }
+function updateAttackedSquares(omit = null) {
+    let pieceOptions = document.querySelectorAll(".piece");
 
+    // Clear both attackedSquares arrays
+    attackedSquares.white = [];
+    attackedSquares.black = [];
 
-function updateAttackedSquares() {
-	console.log(turn.textContent);
-	if(turn.textContent.toLowerCase()=="white"){
-		attackedSquares.white = [];
-	}else{
-		attackedSquares.black = [];
-	}
-
-	pieces.forEach(piece => {
-		if (piece.classList.contains('white')) {	
-			const attackingSquares = getAttackingSquares(piece);
-			attackingSquares.forEach(square => attackedSquares.white.push(square));
-		} else {	
-			const attackingSquares = getAttackingSquares(piece);
-			attackingSquares.forEach(square => attackedSquares.black.push(square));
-		}
-	});
+    pieceOptions.forEach(piece => {
+		const color = getPieceColor(piece);
+        
+        const attackingSquares = getAttackingSquares(piece, omit);
+        
+        attackingSquares.forEach(square => {
+            if (color === "white") {
+                attackedSquares.white.push(square);
+            } else {
+                attackedSquares.black.push(square);
+            }
+        });
+    });
+    
+    // Set background color for attacked squares (you can remove this part if not needed)
+    attackedSquares.white.forEach(element => {
+        element.style.backgroundColor = currentColor;
+    });
+	
+	currentColor = getRandomColor();
+}
+function getRandomColor() {
+    const letters = "0123456789ABCDEF";
+    let color = "#";
+    for (let i = 0; i < 6; i++) {
+        color += letters[Math.floor(Math.random() * 16)];
+    }
+    return color;
 }
 
-function getAttackingSquares(pieceElement) {
+function isCheckmate(kingElementInQuestion, onlyMoves){
+	const color = getPieceColor(kingElementInQuestion);
+	const oppColor = (color==="white") ? "Black" : "White";
+	const availablePieces = document.querySelectorAll(`.piece.${color}`);
+	let checkmate = true;
+	availablePieces.forEach(piece => {
+		console.log(piece);
+		let maybePin = searchForCapturingPinner(piece);
+		if(searchMoves(piece, maybePin[1], onlyMoves, true)){
+			checkmate = false;
+		}
+	});
+	if(checkmate){
+		statusText.textContent = `Checkmate. ${oppColor} wins.`;
+	}
+}
+
+
+function isKingChecked(color = "none", showResult = true){
+	let kings;
+	if(color!="none"){
+		kings = document.querySelectorAll(`.piece.king.${color}`);
+	}else{
+		kings = document.querySelectorAll(`.piece.king`);
+	}
+	let noChecks = true;
+
+    kings.forEach(king => {
+		const opponentColor = (king.classList.contains("white")) ? "black" : "white";
+		const kingColor = (opponentColor == "white") ? "black" : "white";
+        const kingRow = parseInt(king.parentNode.getAttribute("row"));
+        const kingColumn = parseInt(king.parentNode.getAttribute("column"));
+
+        if (isSquareAttackedByColor(kingRow, kingColumn, opponentColor)) {
+			kingElementInCheck = king;
+			if(showResult){
+				console.log(kingColor + " is in check");
+				statusText.textContent = kingColor.substring(0,1).toUpperCase()+kingColor.substring(1,kingColor.length) + " is in check";
+			}
+			checkAttackingPiece = lastPressedPiece;
+			let possibleMoves = [];
+			console.log(checkAttackingPiece);	
+			if(isPieceAdjacentToKing(checkAttackingPiece, kingElementInCheck)){
+				possibleMoves.push(checkAttackingPiece.parentNode);
+				isCheckmate(kingElementInCheck,possibleMoves);
+			}else{
+				possibleMoves.push(checkAttackingPiece.parentNode);
+				let totalPossible = possibleMoves.concat(getRequiredMovesFromCheck(checkAttackingPiece, kingElementInCheck));
+				isCheckmate(kingElementInCheck,totalPossible);
+			}
+			noChecks = false;
+        }
+    });
+	if(noChecks){
+		kingElementInCheck = null;
+		statusText.textContent = " ";
+	}
+}
+
+function getAttackingSquares(pieceElement, omit) {
 	const locX = parseInt(pieceElement.parentNode.getAttribute('column'));
 	const locY = parseInt(pieceElement.parentNode.getAttribute('row'));
-
   
 	const attackingSquares = [];
 	if (pieceElement.classList.contains('wp')) {
@@ -580,7 +1119,9 @@ function getAttackingSquares(pieceElement) {
 				const square = document.querySelector(`[row="${y}"][column="${x}"]`);
 				if(square){
 					if(square.firstChild.classList.contains("piece")){
-						continueInDirection = false;
+						if(square.firstChild != omit){
+							continueInDirection = false;
+						}
 					}
 					attackingSquares.push(square);
 				}
@@ -604,7 +1145,9 @@ function getAttackingSquares(pieceElement) {
 				const square = document.querySelector(`[row="${y}"][column="${x}"]`);
 				if(square){
 					if(square.firstChild.classList.contains("piece")){
-						continueInDirection = false;
+						if(square.firstChild != omit){
+							continueInDirection = false;
+						}
 					}
 					attackingSquares.push(square);
 				}else{
@@ -646,7 +1189,9 @@ function getAttackingSquares(pieceElement) {
 				const square = document.querySelector(`[row="${y}"][column="${x}"]`);
 				if(square){
 					if(square.firstChild.classList.contains("piece")){
-						continueInDirection = false;
+						if(square.firstChild != omit){
+							continueInDirection = false;
+						}
 					}
 					attackingSquares.push(square);
 				}else{
