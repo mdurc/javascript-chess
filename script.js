@@ -49,6 +49,7 @@ updateAttackedSquares();
 let isDragging = false;
 
 function swapNodes(lastPressedPiece, emptySquare){	
+	let color = (getPieceColor(lastPressedPiece) === "white") ? "black" : "white";
 	lastMove = lastPressedPiece;
 	lastMoveOldSquare = lastPressedPiece.parentNode;
 	lastMoveToSquare = emptySquare.parentNode;
@@ -69,6 +70,42 @@ function swapNodes(lastPressedPiece, emptySquare){
 	emptySquare.remove();
 	updateAttackedSquares();
 	isKingChecked();
+	console.log(color + ": "+ document.querySelectorAll(`.piece.${color}`).length);
+	if(document.querySelectorAll(`.piece.${color}`).length==1){
+		if(checkStalemate(color, document.querySelector(`.${color}.king`))){
+			if(!kingElementInCheck){
+				statusText.textContent="Stalemate.";
+			}
+		}
+	}
+}
+function checkStalemate(color, lastPieceKing) {
+	let locX = parseInt(lastPieceKing.parentNode.getAttribute("column"));
+    let locY = parseInt(lastPieceKing.parentNode.getAttribute("row"));
+	let oppColor = (color === "white") ? "black" : "white";
+	let returnVal = true;
+	const potentialHintSquares = [
+			document.querySelector(`[row="${locY+1}"][column="${locX}"]`),
+			document.querySelector(`[row="${locY+1}"][column="${locX+1}"]`),
+			document.querySelector(`[row="${locY+1}"][column="${locX-1}"]`),
+			document.querySelector(`[row="${locY}"][column="${locX-1}"]`),
+			document.querySelector(`[row="${locY}"][column="${locX+1}"]`),
+			document.querySelector(`[row="${locY-1}"][column="${locX}"]`),
+			document.querySelector(`[row="${locY-1}"][column="${locX+1}"]`),
+			document.querySelector(`[row="${locY-1}"][column="${locX-1}"]`),
+		];
+
+	potentialHintSquares.forEach(square => {
+		if (square) {
+			console.log("possible: ", square);
+			console.log(oppColor);
+			console.log(isSquareAttackedByColor(parseInt(square.getAttribute("row")), parseInt(square.getAttribute("column")), oppColor));
+			if(!isSquareAttackedByColor(parseInt(square.getAttribute("row")), parseInt(square.getAttribute("column")), oppColor)){
+				returnVal = false;
+			}
+		}
+	});
+	return returnVal;
 }
 
 
@@ -164,7 +201,7 @@ const mousedownDrag = (event) => {
 			console.log(checkAttackingPiece);	
 			if(isPieceAdjacentToKing(checkAttackingPiece, kingElementInCheck)){
 				possibleMoves.push(checkAttackingPiece.parentNode);
-				searchMoves(draggedPiece, maybePin[1], possibleMoves);
+				searchMoves(draggedPiece, null, possibleMoves);
 			}else{
 				possibleMoves.push(checkAttackingPiece.parentNode);
 				let totalPossible = possibleMoves.concat(getRequiredMovesFromCheck(checkAttackingPiece, kingElementInCheck));
@@ -477,8 +514,7 @@ function hint(pieceElement, blankSquare, direction, locX, locY, checkingForMate 
 			}
 		}
     }
-		if(turn.textContent.toLowerCase() == "white"){
-			if(blankSquare.querySelector(".piece.white")==null){
+			if(blankSquare.querySelector(`.piece.${getPieceColor(pieceElement)}`)==null){
 				let hint = document.createElement("div");
 				hint.classList.add("hint");
 				if(blankSquare.querySelector(".piece.black")){
@@ -497,30 +533,8 @@ function hint(pieceElement, blankSquare, direction, locX, locY, checkingForMate 
 					hasOption = true;
 				}
 			}
-		}else{
-			if(blankSquare.querySelector(".piece.black")==null){
-				let hint = document.createElement("div");
-				hint.classList.add("hint");
-				if(blankSquare.querySelector(".piece.white")){
-					hint.style.backgroundColor = "transparent";
-					hint.style.border = '4px solid rgba(0, 0, 0, 0.2)';
-					hint.style.width = '60px';
-					hint.style.height = '60px';
-				}
-				if(direction){
-					if(squaresInDirection.includes(blankSquare)){
-						blankSquare.appendChild(hint);
-						hasOption = true;
-					}
-				}else{
-					blankSquare.appendChild(hint);
-					hasOption = true;
-				}
-			}
-		}
 	if(checkingForMate){
 		removeHints();
-		console.log("OKI");
 		console.log(hasOption);
 		return hasOption;
 	}
@@ -635,6 +649,8 @@ function searchForCapturingPinner(pieceElement) {
 function searchMoves(pieceElement, pinForceDirection = null, mustGoSquare = null, checkingForMate = false){
 	let locX = parseInt(pieceElement.parentNode.getAttribute("column"));
 	let locY = parseInt(pieceElement.parentNode.getAttribute("row"));
+	let oppColorTest = (getPieceColor(pieceElement)==="white") ? "black" : "white";
+	let saveReturn = null;
 
 	if(pieceElement.classList.contains("wp")){
 		let oneForward =  document.querySelector(`[row="${locY+1}"][column="${locX}"]`);
@@ -642,7 +658,7 @@ function searchMoves(pieceElement, pinForceDirection = null, mustGoSquare = null
 		if(oneForward && oneForward.querySelector(".piece")==null){
 			if (!mustGoSquare || mustGoSquare.includes(oneForward)) {
 				if(checkingForMate){
-					return hint(pieceElement, oneForward, pinForceDirection, locX, locY, checkingForMate);
+					saveReturn = hint(pieceElement, oneForward, pinForceDirection, locX, locY, checkingForMate);
 				}else{
 					hint(pieceElement, oneForward, pinForceDirection, locX, locY, checkingForMate);
 				}
@@ -651,7 +667,7 @@ function searchMoves(pieceElement, pinForceDirection = null, mustGoSquare = null
 		if(twoForward && twoForward.querySelector(".piece")==null && oneForward && oneForward.querySelector(".piece")==null && locY==2){
 			if(!mustGoSquare || mustGoSquare.includes(twoForward)){
 				if(checkingForMate){
-					return hint(pieceElement, twoForward, pinForceDirection, locX, locY, checkingForMate);
+					saveReturn = hint(pieceElement, twoForward, pinForceDirection, locX, locY, checkingForMate);
 				}else{
 					hint(pieceElement, twoForward, pinForceDirection, locX, locY, checkingForMate);
 				}
@@ -665,7 +681,7 @@ function searchMoves(pieceElement, pinForceDirection = null, mustGoSquare = null
 		if(attackSquareRight && attackSquareRight.querySelector(".piece")){
 			if(!mustGoSquare || mustGoSquare.includes(attackSquareRight)){
 				if(checkingForMate){
-					return hint(pieceElement, attackSquareRight, pinForceDirection, locX, locY, checkingForMate);
+					saveReturn = hint(pieceElement, attackSquareRight, pinForceDirection, locX, locY, checkingForMate);
 				}else{
 					hint(pieceElement, attackSquareRight, pinForceDirection, locX, locY, checkingForMate);
 				}
@@ -674,7 +690,7 @@ function searchMoves(pieceElement, pinForceDirection = null, mustGoSquare = null
 		if(attackSquareLeft && attackSquareLeft.querySelector(".piece")){
 			if(!mustGoSquare || mustGoSquare.includes(attackSquareLeft)){
 				if(checkingForMate){
-					return hint(pieceElement, attackSquareLeft, pinForceDirection, locX, locY, checkingForMate);
+					saveReturn = hint(pieceElement, attackSquareLeft, pinForceDirection, locX, locY, checkingForMate);
 				}else{
 					hint(pieceElement, attackSquareLeft, pinForceDirection, locX, locY, checkingForMate);
 				}
@@ -696,7 +712,7 @@ function searchMoves(pieceElement, pinForceDirection = null, mustGoSquare = null
 						if(!mustGoSquare || mustGoSquare.includes(potentialEnPassantSquare)){
 							potentialEnPassantSquare.querySelector(".empty").classList.add("passant");
 							if(checkingForMate){
-								return hint(pieceElement, potentialEnPassantSquare, pinForceDirection, locX, locY, checkingForMate);
+								saveReturn = hint(pieceElement, potentialEnPassantSquare, pinForceDirection, locX, locY, checkingForMate);
 							}else{
 								hint(pieceElement, potentialEnPassantSquare, pinForceDirection, locX, locY, checkingForMate);
 							}
@@ -712,7 +728,7 @@ function searchMoves(pieceElement, pinForceDirection = null, mustGoSquare = null
 		if(oneForward && oneForward.querySelector(".piece")==null){
 			if(!mustGoSquare || mustGoSquare.includes(oneForward)){
 				if(checkingForMate){
-					return hint(pieceElement, oneForward, pinForceDirection, locX, locY, checkingForMate);
+					saveReturn = hint(pieceElement, oneForward, pinForceDirection, locX, locY, checkingForMate);
 				}else{
 					hint(pieceElement, oneForward, pinForceDirection, locX, locY, checkingForMate);
 				}
@@ -721,7 +737,7 @@ function searchMoves(pieceElement, pinForceDirection = null, mustGoSquare = null
 		if(twoForward && twoForward.querySelector(".piece")==null && oneForward && oneForward.querySelector(".piece")==null && locY==7){
 			if(!mustGoSquare || mustGoSquare.includes(twoForward)){
 				if(checkingForMate){
-					return hint(pieceElement, twoForward, pinForceDirection, locX, locY, checkingForMate);
+					saveReturn = hint(pieceElement, twoForward, pinForceDirection, locX, locY, checkingForMate);
 				}else{
 					hint(pieceElement, twoForward, pinForceDirection, locX, locY, checkingForMate);
 				}
@@ -734,7 +750,7 @@ function searchMoves(pieceElement, pinForceDirection = null, mustGoSquare = null
 		if(attackSquareRight && attackSquareRight.querySelector(".piece")){
 			if(!mustGoSquare || mustGoSquare.includes(attackSquareRight)){
 				if(checkingForMate){
-					return hint(pieceElement, attackSquareRight, pinForceDirection, locX, locY, checkingForMate);
+					saveReturn = hint(pieceElement, attackSquareRight, pinForceDirection, locX, locY, checkingForMate);
 				}else{
 					hint(pieceElement, attackSquareRight, pinForceDirection, locX, locY, checkingForMate);
 				}
@@ -743,7 +759,7 @@ function searchMoves(pieceElement, pinForceDirection = null, mustGoSquare = null
 		if(attackSquareLeft && attackSquareLeft.querySelector(".piece")){
 			if(!mustGoSquare || mustGoSquare.includes(attackSquareLeft)){
 				if(checkingForMate){
-					return hint(pieceElement, attackSquareLeft, pinForceDirection, locX, locY, checkingForMate);
+					saveReturn = hint(pieceElement, attackSquareLeft, pinForceDirection, locX, locY, checkingForMate);
 				}else{
 					hint(pieceElement, attackSquareLeft, pinForceDirection, locX, locY, checkingForMate);
 				}
@@ -765,7 +781,7 @@ function searchMoves(pieceElement, pinForceDirection = null, mustGoSquare = null
 						if(!mustGoSquare || mustGoSquare.includes(potentialEnPassantSquare)){
 							potentialEnPassantSquare.querySelector(".empty").classList.add("passant");
 							if(checkingForMate){
-								return hint(pieceElement, potentialEnPassantSquare, pinForceDirection, locX, locY, checkingForMate);
+								saveReturn = hint(pieceElement, potentialEnPassantSquare, pinForceDirection, locX, locY, checkingForMate);
 							}else{
 								hint(pieceElement, potentialEnPassantSquare, pinForceDirection, locX, locY, checkingForMate);
 							}
@@ -786,7 +802,6 @@ function searchMoves(pieceElement, pinForceDirection = null, mustGoSquare = null
 			document.querySelector(`[row="${locY-1}"][column="${locX-1}"]`),
 		];
 
-
 		if (pieceElement.getAttribute("data-moved") === "false") {
 			const rookRight = document.querySelector(`[row="${locY}"][column="${locX + 3}"]`);
 			const rookLeft = document.querySelector(`[row="${locY}"][column="${locX - 4}"]`);
@@ -805,17 +820,15 @@ function searchMoves(pieceElement, pinForceDirection = null, mustGoSquare = null
 		}
 		potentialHintSquares.forEach(square => {
 			if (square) {
-				if(turn.textContent.toLowerCase() == "white" && isSquareAttackedByColor(parseInt(square.getAttribute("row")), parseInt(square.getAttribute("column")), "black")){
-				
-				}else if(turn.textContent.toLowerCase() == "black" && isSquareAttackedByColor(parseInt(square.getAttribute("row")), parseInt(square.getAttribute("column")), "white")){
-					
+				if(isSquareAttackedByColor(parseInt(square.getAttribute("row")), parseInt(square.getAttribute("column")), oppColorTest)){
+
 				}else{
 					//doesnt need mustGo, because the king cant block
-					if(checkingForMate){
-						return hint(pieceElement, square, pinForceDirection, locX, locY, checkingForMate);
-					}else{
-						hint(pieceElement, square, pinForceDirection, locX, locY, checkingForMate);
-					}
+						if(checkingForMate){
+							saveReturn = hint(pieceElement, square, null, locX, locY, checkingForMate);
+						}else{
+							hint(pieceElement, square, null, locX, locY, checkingForMate);
+						}
 				}
 			}
 		});
@@ -844,7 +857,7 @@ function searchMoves(pieceElement, pinForceDirection = null, mustGoSquare = null
 					}
 					if(!mustGoSquare || mustGoSquare.includes(square)){
 						if(checkingForMate){
-							return hint(pieceElement, square, pinForceDirection, locX, locY, checkingForMate);
+							saveReturn = hint(pieceElement, square, pinForceDirection, locX, locY, checkingForMate);
 						}else{
 							hint(pieceElement, square, pinForceDirection, locX, locY, checkingForMate);
 						}
@@ -876,7 +889,7 @@ function searchMoves(pieceElement, pinForceDirection = null, mustGoSquare = null
 					}
 					if(!mustGoSquare || mustGoSquare.includes(square)){
 						if(checkingForMate){
-							return hint(pieceElement, square, pinForceDirection, locX, locY, checkingForMate);
+							saveReturn = hint(pieceElement, square, pinForceDirection, locX, locY, checkingForMate);
 						}else{
 							hint(pieceElement, square, pinForceDirection, locX, locY, checkingForMate);
 						}
@@ -903,7 +916,7 @@ function searchMoves(pieceElement, pinForceDirection = null, mustGoSquare = null
 			if (square) {
 				if(!mustGoSquare || mustGoSquare.includes(square)){
 					if(checkingForMate){
-						return hint(pieceElement, square, pinForceDirection, locX, locY, checkingForMate);
+						saveReturn = hint(pieceElement, square, pinForceDirection, locX, locY, checkingForMate);
 					}else{
 						hint(pieceElement, square, pinForceDirection, locX, locY, checkingForMate);
 					}
@@ -930,7 +943,7 @@ function searchMoves(pieceElement, pinForceDirection = null, mustGoSquare = null
 					}
 					if(!mustGoSquare || mustGoSquare.includes(square)){
 						if(checkingForMate){
-							return hint(pieceElement, square, pinForceDirection, locX, locY, checkingForMate);
+							saveReturn = hint(pieceElement, square, pinForceDirection, locX, locY, checkingForMate);
 						}else{
 							hint(pieceElement, square, pinForceDirection, locX, locY, checkingForMate);
 						}
@@ -943,6 +956,7 @@ function searchMoves(pieceElement, pinForceDirection = null, mustGoSquare = null
 			}
 		});
 	}
+	return saveReturn;
 }
 
 
@@ -985,7 +999,6 @@ function isCheckmate(kingElementInQuestion, onlyMoves){
 	const availablePieces = document.querySelectorAll(`.piece.${color}`);
 	let checkmate = true;
 	availablePieces.forEach(piece => {
-		console.log(piece);
 		let maybePin = searchForCapturingPinner(piece);
 		if(searchMoves(piece, maybePin[1], onlyMoves, true)){
 			checkmate = false;
