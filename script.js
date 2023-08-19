@@ -1,5 +1,5 @@
 const board = document.querySelector(".board");
-const flipBoard = document.querySelector(".flip");
+const flipBoardButton = document.querySelector(".flip");
 const playComputer = document.querySelector(".computer");
 const toggleHints = document.querySelector(".toggleHints");
 const statusText = document.querySelector(".status");
@@ -30,7 +30,9 @@ const attackedSquares = {
 };
 
 boardSetup(); //creates piece elements
+printBoardCoords();
 let pieces = document.querySelectorAll(".piece.white"); //white goes first
+
 
 updateAttackedSquares();
 
@@ -42,8 +44,10 @@ toggleHints.addEventListener('click', (event)=>{
 	}
 });
 
+flipBoardButton.addEventListener('click', flipBoard);
 
 function updateMoveHistory(){
+	printBoardCoords();
 	let nextMove = lastMoveText.substring(1);
 	if (/^[1-8]$/.test(lastMoveText[0])) {
 		lastMoveText = String.fromCharCode(96 + parseInt(lastMoveText[0])) + nextMove;
@@ -427,10 +431,8 @@ document.addEventListener('mouseup', () => {
 
 
 function boardSetup() {
-	let visualBoardCoords = "";
 	for (let r = 8; r >=1 ; r--) {
 		for(let c = 1; c<=8; c++){
-			visualBoardCoords+= c.toString()+r.toString()+ " | ";
 			let square = document.createElement("div");
 			square.classList.add("square");
 
@@ -446,11 +448,38 @@ function boardSetup() {
 			}
 			board.appendChild(square);
 		}
-		visualBoardCoords+="\n";
 	}
+}
+
+function printBoardCoords() {
+	let visualBoardCoords = "";
+	const childElements = Array.from(document.querySelector(".board").children);
+	let count = 1;
+	childElements.forEach(element => {
+		visualBoardCoords+=element.getAttribute("column") + element.getAttribute("row") + " | ";
+		if(count==8){
+			count=1;
+			visualBoardCoords+="\n";
+		}else{
+			count++;
+		}
+	});
 	console.log(visualBoardCoords);
 }
 
+function flipBoard(){
+	const board = document.querySelector('.board');
+	const squares = Array.from(document.querySelector(".board").children);
+
+	board.innerHTML = '';
+
+	const reversedSquares = squares.reverse();
+	
+	reversedSquares.forEach(square => {
+		board.appendChild(square);
+	});
+	printBoardCoords();
+}
 
 function pieceSetup(square, r, c, piece = null) {
 	let startPiece = document.createElement("img");
