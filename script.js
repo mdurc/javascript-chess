@@ -17,6 +17,20 @@ let newMove = null;
 let kingElementInCheck = null;
 let checkAttackingPiece = null;
 
+const promotionOptions = ['Queen', 'Rook', 'Knight', 'Bishop'];
+
+boardSetup();
+
+let pieces = document.querySelectorAll(".piece.white");
+const attackedSquares = {
+	white: [], 
+	black: [],
+};
+
+updateAttackedSquares();
+
+let isDragging = false;
+
 function updateMoveHistory(){
 	let nextMove = lastMoveText.substring(1);
 	if (/^[1-8]$/.test(lastMoveText[0])) {
@@ -32,21 +46,6 @@ function updateMoveHistory(){
 	lastMoveText += newMove;
 	moveHistory.textContent += lastMoveText+ "\r\n";
 }
-
-boardSetup();
-
-let pieces = document.querySelectorAll(".piece.white");
-const attackedSquares = {
-	white: [], 
-	black: [],
-};
-
-updateAttackedSquares();
-
-
-
-
-let isDragging = false;
 
 function swapNodes(lastPressedPiece, emptySquare){	
 	let color = (getPieceColor(lastPressedPiece) === "white") ? "black" : "white";
@@ -68,7 +67,9 @@ function swapNodes(lastPressedPiece, emptySquare){
 	removeHints();
 	emptySquare.remove();
 	updateAttackedSquares();
+
 	isKingChecked();
+
 	if(document.querySelectorAll(`.piece.${color}`).length==1){
 		if(checkStalemate(color, document.querySelector(`.${color}.king`))){
 			if(!kingElementInCheck){
@@ -103,9 +104,23 @@ function checkStalemate(color, lastPieceKing) {
 	return returnVal;
 }
 
+function handlePromotion(pawnElement){
+	console.log(pawnElement);
+	console.log(pawnElement.parentNode);
+	const promotionChoice = prompt('Select a piece for pawn promotion:\n' + promotionOptions.join(', '));
+}
 
 function movePiecePosition(lastPressedPiece, square){//lastPressedPiece is the actual piece element. Square is the empty div element
-	if(lastPressedPiece.classList.contains("wr") && lastPressedPiece.getAttribute("data-moved")=="false" || lastPressedPiece.classList.contains("br") && lastPressedPiece.getAttribute("data-moved")=="false"){
+	//Pawn Promotion!
+	if(lastPressedPiece.classList.contains("wp") && parseInt(square.parentNode.getAttribute("row"))== 8){
+		swapNodes(lastPressedPiece,square);
+		handlePromotion(lastPressedPiece);
+
+	}else if(lastPressedPiece.classList.contains("bp") && parseInt(square.parentNode.getAttribute("row"))== 1){
+		swapNodes(lastPressedPiece,square);
+		handlePromotion(lastPressedPiece);
+
+	}else if(lastPressedPiece.classList.contains("wr") && lastPressedPiece.getAttribute("data-moved")=="false" || lastPressedPiece.classList.contains("br") && lastPressedPiece.getAttribute("data-moved")=="false"){
 		lastPressedPiece.setAttribute("data-moved", "true");
 
 		swapNodes(lastPressedPiece, square);
@@ -193,13 +208,20 @@ const mousedownDrag = (event) => {
 		if(kingElementInCheck){
 			console.log("isInCheckStill");
 			let possibleMoves = [];
-			if(isPieceAdjacentToKing(checkAttackingPiece, kingElementInCheck)){
-				possibleMoves.push(checkAttackingPiece.parentNode);
-				searchMoves(draggedPiece, null, possibleMoves);
+			if(checkAttackingPiece.length>1){
+				possibleMoves.push(getRequiredMovesFromCheck(checkAttackingPiece, kingElementInCheck));
+				if(draggedPiece.classList.contains("king")){
+					searchMoves(draggedPiece, null, possibleMoves);
+				}
 			}else{
-				possibleMoves.push(checkAttackingPiece.parentNode);
-				let totalPossible = possibleMoves.concat(getRequiredMovesFromCheck(checkAttackingPiece, kingElementInCheck));
-				searchMoves(draggedPiece, maybePin[1], totalPossible);
+				if(isPieceAdjacentToKing(checkAttackingPiece[0], kingElementInCheck)){
+					possibleMoves.push(checkAttackingPiece[0].parentNode);
+					searchMoves(draggedPiece, null, possibleMoves);
+				}else{
+					possibleMoves.push(checkAttackingPiece[0].parentNode);
+					let totalPossible = possibleMoves.concat(getRequiredMovesFromCheck(checkAttackingPiece[0], kingElementInCheck));
+					searchMoves(draggedPiece, maybePin[1], totalPossible);
+				}
 			}
 		}else{
 			searchMoves(draggedPiece, maybePin[1]);
@@ -219,13 +241,29 @@ function isPieceAdjacentToKing(pieceElement, kingElement) {
 
     return Math.abs(pieceRow - kingRow) <= 1 && Math.abs(pieceColumn - kingColumn) <= 1;
 }
+
+
 function getRequiredMovesFromCheck(pieceElement, kingElement){
+	const kingRow = parseInt(kingElement.parentNode.getAttribute("row"));
+    const kingColumn = parseInt(kingElement.parentNode.getAttribute("column"));
+	if(Array.isArray(pieceElement)){
+		const mustMoveKing = [
+			document.querySelector(`[row="${kingRow+1}"][column="${kingColumn}"]`),
+			document.querySelector(`[row="${kingRow+1}"][column="${kingColumn+1}"]`),
+			document.querySelector(`[row="${kingRow+1}"][column="${kingColumn-1}"]`),
+			document.querySelector(`[row="${kingRow}"][column="${kingColumn-1}"]`),
+			document.querySelector(`[row="${kingRow}"][column="${kingColumn+1}"]`),
+			document.querySelector(`[row="${kingRow-1}"][column="${kingColumn}"]`),
+			document.querySelector(`[row="${kingRow-1}"][column="${kingColumn+1}"]`),
+			document.querySelector(`[row="${kingRow-1}"][column="${kingColumn-1}"]`),
+		];
+		return mustMoveKing;
+	}
 	if(pieceElement.classList.contains("knight")){
 		return [];
 	}
 	
-    const kingRow = parseInt(kingElement.parentNode.getAttribute("row"));
-    const kingColumn = parseInt(kingElement.parentNode.getAttribute("column"));
+    
 
     const pieceRow = parseInt(pieceElement.parentNode.getAttribute("row"));
     const pieceColumn = parseInt(pieceElement.parentNode.getAttribute("column"));
@@ -249,6 +287,7 @@ function getRequiredMovesFromCheck(pieceElement, kingElement){
 
     return requiredMoves;
 }
+
 
 function movePiece(event) {
 		if (isDragging && draggedPiece) {
@@ -561,6 +600,177 @@ function getOppositeDirectionName(direction) {
     return oppositeDirectionMap[direction];
 }
 
+function findPieceGivingCheck(kingLocation) {
+	let locX = parseInt(kingLocation.parentNode.getAttribute("column"));
+    let locY = parseInt(kingLocation.parentNode.getAttribute("row"));
+    let kingColor = getPieceColor(kingLocation);
+    let opponentColor = (kingColor === "white") ? "black" : "white";
+	let opponentAbbrev = opponentColor.substring(0,1);
+
+	let piecesGivingChecks = [];
+	let potentialCycle = [];
+	let pawnLoc = null;
+
+	if(kingColor==="white"){
+		pawnLoc = 1;
+	}else{
+		pawnLoc = -1;
+	}
+
+	//pawn
+	
+	potentialCycle.push(document.querySelector(`[row="${locY+pawnLoc}"][column="${locX+1}"]`));
+	potentialCycle.push(document.querySelector(`[row="${locY+pawnLoc}"][column="${locX-1}"]`));
+	
+	potentialCycle.forEach(square => {
+		if (square && square.firstChild.classList.contains(`${opponentAbbrev}p`)) {
+			piecesGivingChecks.push(square.firstChild);
+		}
+	});
+
+	potentialCycle = [];
+
+
+	//Knight
+	
+	potentialCycle = [
+		document.querySelector(`[row="${locY+2}"][column="${locX+1}"]`),
+		document.querySelector(`[row="${locY+1}"][column="${locX+2}"]`),
+		document.querySelector(`[row="${locY-1}"][column="${locX+2}"]`),
+		document.querySelector(`[row="${locY-2}"][column="${locX+1}"]`),
+		document.querySelector(`[row="${locY-2}"][column="${locX-1}"]`),
+		document.querySelector(`[row="${locY-1}"][column="${locX-2}"]`),
+		document.querySelector(`[row="${locY+2}"][column="${locX-1}"]`),
+		document.querySelector(`[row="${locY+1}"][column="${locX-2}"]`),
+	];
+	
+	potentialCycle.forEach(square => {
+		if (square && square.firstChild.classList.contains(`${opponentAbbrev}n`)) {
+			piecesGivingChecks.push(square.firstChild);
+		}
+	});
+
+	potentialCycle = [];
+
+	//Bishop
+	
+	let directions = [
+			{ dx: 1, dy: 1 }, //up right diagonal
+			{ dx: -1, dy: 1 }, //up left diagonal
+			{ dx: 1, dy: -1 }, //down right diagonal
+			{ dx: -1, dy: -1 } //down left diagonal
+	];
+		directions.forEach(direction => {
+			let x = locX + direction.dx;
+			let y = locY + direction.dy;
+			let continueInDirection = true;
+
+			while (x >= 1 && x <= 8 && y >= 1 && y <= 8 && continueInDirection) {
+				const square = document.querySelector(`[row="${y}"][column="${x}"]`);
+				if(square){
+					if(square.firstChild.classList.contains(`${opponentAbbrev}b`)){
+						continueInDirection = false;
+						potentialCycle.push(square.firstChild);
+					}else if(square.firstChild.classList.contains("piece")){
+						continueInDirection = false;
+					}
+				}else{
+					continueInDirection = false;
+				}
+				x += direction.dx;
+				y += direction.dy;
+			}
+		});
+	
+	potentialCycle.forEach(square => {
+		piecesGivingChecks.push(square);
+	});
+
+	
+
+	potentialCycle = [];
+	//Queen
+	
+
+	directions = [
+			{ dx: 1, dy: 0 }, //right
+			{ dx: -1, dy: 0 }, //left
+			{ dx: 0, dy: 1 }, //up
+			{ dx: 0, dy: -1 }, //down
+			{ dx: 1, dy: 1 }, //up right diagonal
+			{ dx: -1, dy: 1 }, //up left diagonal
+			{ dx: 1, dy: -1 }, //down right diagonal
+			{ dx: -1, dy: -1 } //down left diagonal
+		];
+
+	directions.forEach(direction => {
+			let x = locX + direction.dx;
+			let y = locY + direction.dy;
+			let continueInDirection = true;
+
+			while (x >= 1 && x <= 8 && y >= 1 && y <= 8 && continueInDirection) {
+				const square = document.querySelector(`[row="${y}"][column="${x}"]`);
+				if(square){
+					if(square.firstChild.classList.contains(`${opponentAbbrev}q`)){
+						continueInDirection = false;
+						potentialCycle.push(square.firstChild);
+					}else if(square.firstChild.classList.contains("piece")){
+						continueInDirection = false;
+					}
+				}else{
+					continueInDirection = false;
+				}
+				x += direction.dx;
+				y += direction.dy;
+			}
+		});
+	
+	potentialCycle.forEach(square => {
+		piecesGivingChecks.push(square);
+	});
+
+
+	potentialCycle = [];
+	//rook
+	
+	directions = [
+			{ dx: 1, dy: 0 }, //right
+			{ dx: -1, dy: 0 }, //left
+			{ dx: 0, dy: 1 }, //up
+			{ dx: 0, dy: -1 }, //down
+		];
+
+	directions.forEach(direction => {
+			let x = locX + direction.dx;
+			let y = locY + direction.dy;
+			let continueInDirection = true;
+
+			while (x >= 1 && x <= 8 && y >= 1 && y <= 8 && continueInDirection) {
+				const square = document.querySelector(`[row="${y}"][column="${x}"]`);
+				if(square){
+					if(square.firstChild.classList.contains(`${opponentAbbrev}r`)){
+						continueInDirection = false;
+						potentialCycle.push(square.firstChild);
+					}else if(square.firstChild.classList.contains("piece")){
+						continueInDirection = false;
+					}
+				}else{
+					continueInDirection = false;
+				}
+				x += direction.dx;
+				y += direction.dy;
+			}
+		});
+	
+	potentialCycle.forEach(square => {
+		piecesGivingChecks.push(square);
+	});
+
+
+	return piecesGivingChecks;
+}
+
+
 function searchForCapturingPinner(pieceElement) {
     let locX = parseInt(pieceElement.parentNode.getAttribute("column"));
     let locY = parseInt(pieceElement.parentNode.getAttribute("row"));
@@ -614,17 +824,19 @@ function searchForCapturingPinner(pieceElement) {
                 const square = document.querySelector(`[row="${y}"][column="${x}"]`);
                 if (square) {
 					if(square.firstChild.classList.contains("piece") && square.firstChild.classList.contains(pieceColor)){
-						return [false, null];
+						return [false, null, lastPressedPiece];
 					}else if (square.firstChild.classList.contains("piece") && square.firstChild.classList.contains(opponentColor)) {
 						if((oppositeDirection.name === "right" || oppositeDirection.name === "left" || oppositeDirection.name === "up" || oppositeDirection.name === "down") && square.firstChild.classList.contains(`${oppenentAbbrev}r`) || square.firstChild.classList.contains(`${oppenentAbbrev}q`)){
 							console.log(`King is located ${kingDirection} of the pinned piece.`);
 							console.log(`Next piece in the opposite direction: ${square.firstChild.classList[1]}`);
-							return [true, oppositeDirection.name];
+							return [true, oppositeDirection.name, square.firstChild];
 
 						}else if((oppositeDirection.name === "up right diagonal" || oppositeDirection.name === "up left diagonal" || oppositeDirection.name === "down right diagonal" || oppositeDirection.name === "down left diagonal") && square.firstChild.classList.contains(`${oppenentAbbrev}b`) || square.firstChild.classList.contains(`${oppenentAbbrev}q`)){
 							console.log(`King is located ${kingDirection} of the pinned piece.`);
 							console.log(`Next piece in the opposite direction: ${square.firstChild.classList[1]}`);
-							return [true, oppositeDirection.name];
+							return [true, oppositeDirection.name, square.firstChild];
+						}else{
+							return [false, null, lastPressedPiece];
 						}
                     }
                 }
@@ -634,7 +846,7 @@ function searchForCapturingPinner(pieceElement) {
         }
     }
 
-	return [false, null];
+	return [false, null, lastPressedPiece];
 }
 
 function searchMoves(pieceElement, pinForceDirection = null, mustGoSquare = null, checkingForMate = false){
@@ -1020,17 +1232,27 @@ function updateAttackedSquares(omit = null) {
     });
 }
 
-function isCheckmate(kingElementInQuestion, onlyMoves){
+function isCheckmate(kingElementInQuestion, onlyMoves, onlyKingCanMove = false){
 	const color = getPieceColor(kingElementInQuestion);
 	const oppColor = (color==="white") ? "Black" : "White";
 	const availablePieces = document.querySelectorAll(`.piece.${color}`);
 	let checkmate = true;
-	availablePieces.forEach(piece => {
-		let maybePin = searchForCapturingPinner(piece);
-		if(searchMoves(piece, maybePin[1], onlyMoves, true)){
+	if(onlyKingCanMove){
+		let maybePin = searchForCapturingPinner(kingElementInQuestion);
+		console.log("hasSearch: ", searchMoves(kingElementInQuestion, maybePin[1], onlyMoves, true));
+		if(searchMoves(kingElementInQuestion, maybePin[1], onlyMoves, true)){
 			checkmate = false;
 		}
-	});
+	}else{
+		availablePieces.forEach(piece => {
+			console.log(piece);
+			let maybePin = searchForCapturingPinner(piece);
+			console.log("hasSearch: ", searchMoves(piece, maybePin[1], onlyMoves, true));
+			if(searchMoves(piece, maybePin[1], onlyMoves, true)){
+				checkmate = false;
+			}
+		});
+	}
 	if(checkmate){
 		statusText.textContent = `Checkmate. ${oppColor} wins.`;
 	}
@@ -1051,6 +1273,8 @@ function isKingChecked(color = "none", showResult = true){
 		const kingColor = (opponentColor == "white") ? "black" : "white";
         const kingRow = parseInt(king.parentNode.getAttribute("row"));
         const kingColumn = parseInt(king.parentNode.getAttribute("column"));
+		console.log("kingC: ", king);
+		console.log(findPieceGivingCheck(king));
 
         if (isSquareAttackedByColor(kingRow, kingColumn, opponentColor)) {
 			kingElementInCheck = king;
@@ -1058,15 +1282,25 @@ function isKingChecked(color = "none", showResult = true){
 				console.log(kingColor + " is in check");
 				statusText.textContent = kingColor.substring(0,1).toUpperCase()+kingColor.substring(1,kingColor.length) + " is in check";
 			}
-			checkAttackingPiece = lastPressedPiece;
+			
+			checkAttackingPiece = findPieceGivingCheck(king);
+
 			let possibleMoves = [];
-			if(isPieceAdjacentToKing(checkAttackingPiece, kingElementInCheck)){
-				possibleMoves.push(checkAttackingPiece.parentNode);
-				isCheckmate(kingElementInCheck,possibleMoves);
+			if(checkAttackingPiece.length>1){
+				possibleMoves.push(getRequiredMovesFromCheck(checkAttackingPiece, kingElementInCheck));
+				possibleMoves.forEach(square => {
+					console.log("Possible move: ", square);
+				});
+				isCheckmate(kingElementInCheck, possibleMoves, true);
 			}else{
-				possibleMoves.push(checkAttackingPiece.parentNode);
-				let totalPossible = possibleMoves.concat(getRequiredMovesFromCheck(checkAttackingPiece, kingElementInCheck));
-				isCheckmate(kingElementInCheck,totalPossible);
+				if(isPieceAdjacentToKing(checkAttackingPiece[0], kingElementInCheck)){
+					possibleMoves.push(checkAttackingPiece[0].parentNode);
+					isCheckmate(kingElementInCheck,possibleMoves);
+				}else{
+					possibleMoves.push(checkAttackingPiece[0].parentNode);
+					let totalPossible = possibleMoves.concat(getRequiredMovesFromCheck(checkAttackingPiece[0], kingElementInCheck));
+					isCheckmate(kingElementInCheck,totalPossible);
+				}
 			}
 			noChecks = false;
         }
