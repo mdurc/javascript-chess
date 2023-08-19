@@ -17,8 +17,6 @@ let newMove = null;
 let kingElementInCheck = null;
 let checkAttackingPiece = null;
 
-const promotionOptions = ['Queen', 'Rook', 'Knight', 'Bishop'];
-
 boardSetup();
 
 let pieces = document.querySelectorAll(".piece.white");
@@ -107,18 +105,59 @@ function checkStalemate(color, lastPieceKing) {
 function handlePromotion(pawnElement){
 	console.log(pawnElement);
 	console.log(pawnElement.parentNode);
-	const promotionChoice = prompt('Select a piece for pawn promotion:\n' + promotionOptions.join(', '));
+	let pawnSquare = pawnElement.parentNode;
+	const promotionOptions = ['Queen', 'Rook', 'Knight', 'Bishop'];
+	let colorLetter = (getPieceColor(pawnElement)==="white") ? "w" : "b";
+	let promotionChoice;
+	let newPiece = null;
+
+	while (true) {
+		promotionChoice = prompt('Select a piece for pawn promotion:\n' + promotionOptions.join(', '));
+
+		if (promotionOptions.includes(promotionChoice)) {
+			break; // Valid choice, exit the loop
+		} else {
+			console.log('Invalid choice. Please select one of: ' + promotionOptions.join(', '));
+		}
+	}
+	
+
+	switch (promotionChoice) {
+		case "Queen":
+			pawnElement.remove();
+			newPiece = pieceSetup(null, null, null, `${colorLetter}q`);
+			pawnSquare.appendChild(newPiece);
+			return newPiece;
+		case "Rook":
+			pawnElement.remove();
+			newPiece = pieceSetup(null, null, null, `${colorLetter}r`);
+			pawnSquare.appendChild(newPiece);
+			return newPiece;
+		case "Knight":
+			pawnElement.remove();
+			newPiece = pieceSetup(null, null, null, `${colorLetter}n`);
+			pawnSquare.appendChild(newPiece);
+			return newPiece;
+		case "Bishop":
+			pawnElement.remove();
+			newPiece = pieceSetup(null, null, null, `${colorLetter}b`);
+			pawnSquare.appendChild(newPiece);
+			return newPiece;
+
+		default:
+			console.log("invalid choice");
+			break;
+	}	
 }
 
 function movePiecePosition(lastPressedPiece, square){//lastPressedPiece is the actual piece element. Square is the empty div element
 	//Pawn Promotion!
 	if(lastPressedPiece.classList.contains("wp") && parseInt(square.parentNode.getAttribute("row"))== 8){
-		swapNodes(lastPressedPiece,square);
-		handlePromotion(lastPressedPiece);
+		
+		swapNodes(handlePromotion(lastPressedPiece),square);
 
 	}else if(lastPressedPiece.classList.contains("bp") && parseInt(square.parentNode.getAttribute("row"))== 1){
-		swapNodes(lastPressedPiece,square);
-		handlePromotion(lastPressedPiece);
+		swapNodes(handlePromotion(lastPressedPiece),square);
 
 	}else if(lastPressedPiece.classList.contains("wr") && lastPressedPiece.getAttribute("data-moved")=="false" || lastPressedPiece.classList.contains("br") && lastPressedPiece.getAttribute("data-moved")=="false"){
 		lastPressedPiece.setAttribute("data-moved", "true");
@@ -397,8 +436,7 @@ function boardSetup() {
 }
 
 
-
-function pieceSetup(square, r, c) {
+function pieceSetup(square, r, c, piece = null) {
 	let startPiece = document.createElement("img");
 	if(r==2){
 		startPiece.classList.add("piece");
@@ -411,24 +449,24 @@ function pieceSetup(square, r, c) {
 		startPiece.classList.add("bp");
 		startPiece.classList.add("black");
 		startPiece.src = "./pieceImages/bp.png";
-	}else if(r==1&&c==1 || r==1&&c==8){
+	}else if(r==1&&c==1 || r==1&&c==8 || piece=="wr"){
 		startPiece.classList.add("piece");
 		startPiece.classList.add("wr");
 		startPiece.classList.add("white");
 		startPiece.src = "./pieceImages/wr.png";
 		startPiece.setAttribute("data-moved", "false");
-	}else if(r==1&&c==2 || r==1&&c==7){
+	}else if(r==1&&c==2 || r==1&&c==7 || piece == "wn"){
 		startPiece.classList.add("piece");
 		startPiece.classList.add("wn");
 		startPiece.classList.add("knight");
 		startPiece.classList.add("white");
 		startPiece.src = "./pieceImages/wn.png";
-	}else if(r==1&&c==3 || r==1&&c==6){
+	}else if(r==1&&c==3 || r==1&&c==6 || piece == "wb"){
 		startPiece.classList.add("piece");
 		startPiece.classList.add("wb");
 		startPiece.classList.add("white");
 		startPiece.src = "./pieceImages/wb.png";
-	}else if(r==1&&c==4){
+	}else if(r==1&&c==4 || piece == "wq"){
 		startPiece.classList.add("piece");
 		startPiece.classList.add("wq");
 		startPiece.classList.add("white");
@@ -440,24 +478,24 @@ function pieceSetup(square, r, c) {
 		startPiece.classList.add("king");
 		startPiece.src = "./pieceImages/wk.png";
 		startPiece.setAttribute("data-moved", "false");
-	}else if(r==8&&c==1 || r==8&&c==8){
+	}else if(r==8&&c==1 || r==8&&c==8 || piece == "br"){
 		startPiece.classList.add("piece");
 		startPiece.classList.add("br");
 		startPiece.classList.add("black");
 		startPiece.src = "./pieceImages/br.png";
 		startPiece.setAttribute("data-moved", "false");
-	}else if(r==8&&c==2 || r==8&&c==7){
+	}else if(r==8&&c==2 || r==8&&c==7 || piece == "bn"){
 		startPiece.classList.add("piece");
 		startPiece.classList.add("bn");
 		startPiece.classList.add("knight");
 		startPiece.classList.add("black");
 		startPiece.src = "./pieceImages/bn.png";
-	}else if(r==8&&c==3 || r==8&&c==6){
+	}else if(r==8&&c==3 || r==8&&c==6 || piece == "bb"){
 		startPiece.classList.add("piece");
 		startPiece.classList.add("bb");
 		startPiece.classList.add("black");
 		startPiece.src = "./pieceImages/bb.png";
-	}else if(r==8&&c==4){
+	}else if(r==8&&c==4 || piece == "bq"){
 		startPiece.classList.add("piece");
 		startPiece.classList.add("bq");
 		startPiece.classList.add("black");
@@ -473,7 +511,11 @@ function pieceSetup(square, r, c) {
 		isBlank = true;
 		square.appendChild(newEmpty());
 	}
-	if(!isBlank){
+	if(piece){
+		console.log(startPiece);
+		startPiece.setAttribute("draggable",false);
+		return startPiece;
+	}else if(!isBlank){
 		startPiece.setAttribute("draggable",false);
 		square.appendChild(startPiece);
 		isBlank = false;
