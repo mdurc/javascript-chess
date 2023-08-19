@@ -13,8 +13,6 @@ let lastMoveOldSquare = null;
 let lastMoveToSquare = null;
 let lastMoveText = null;
 let newMove = null;
-let currentColor = getRandomColor();
-let currentColorBlack = getRandomColor();
 
 let kingElementInCheck = null;
 let checkAttackingPiece = null;
@@ -979,21 +977,6 @@ function updateAttackedSquares(omit = null) {
             }
         });
     });
-    
-    // Set background color for attacked squares (you can remove this part if not needed)
-    attackedSquares.white.forEach(element => {
-        element.style.backgroundColor = currentColor;
-    });
-	
-	currentColor = getRandomColor();
-}
-function getRandomColor() {
-    const letters = "0123456789ABCDEF";
-    let color = "#";
-    for (let i = 0; i < 6; i++) {
-        color += letters[Math.floor(Math.random() * 16)];
-    }
-    return color;
 }
 
 function isCheckmate(kingElementInQuestion, onlyMoves){
