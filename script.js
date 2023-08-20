@@ -4,12 +4,17 @@ const computerButton = document.querySelector(".computer");
 const toggleHints = document.querySelector(".toggleHints");
 const statusText = document.querySelector(".status");
 const moveHistory = document.querySelector(".moveHistory");
+const getPGNButton = document.querySelector(".getPGN");
+
 moveHistory.setAttribute('style', 'white-space: pre;');
 
 let attemptedPieces = new Set();
 
 let turn = document.querySelector(".turn");
 let isBlank = false;
+
+let confirmedCheckmate = false;
+let result = null;
 
 let hintTransparency = 0.2;
 
@@ -93,38 +98,150 @@ toggleHints.addEventListener('click', (event)=>{
 		hintTransparency = 0.2;
 	}
 });
+getPGNButton.addEventListener('click', (event)=>{
+	const history=  convertToPGN(moveHistory.textContent);
+
+	const tempTextArea = document.createElement('textarea');
+	tempTextArea.value = history;
+
+    document.body.appendChild(tempTextArea);
+
+	tempTextArea.select();
+    tempTextArea.setSelectionRange(0, 99999); //For mobile
+
+    document.execCommand('copy');
+
+    document.body.removeChild(tempTextArea);
+
+    getPGNButton.textContent = 'Copied';
+
+	setTimeout(() => {
+		getPGNButton.textContent = 'Get PGN';
+    }, 1000);
+});
 
 flipBoardButton.addEventListener('click', flipBoard);
 
-function updateMoveHistory(){
-	let nextMove = lastMoveText.substring(1);
-	if (/^[1-8]$/.test(lastMoveText[0])) {
-		lastMoveText = String.fromCharCode(96 + parseInt(lastMoveText[0])) + nextMove;
-	}
-	lastMoveText +=" to ";
+function convertToPGN(inputText) {
+    let pgn = `[Event "?"]\n[Site "?"]\n[Date "????.??.??"]\n[Round "?"]\n[White "?"]\n[Black "?"]\n[Result ${result}]\n\n`;
+    let moveNumber = 1;
+    let moves = '';
+    const lines = inputText.trim().split('\n');
 
-	nextMove = newMove.substring(1);
-	if (/^[1-8]$/.test(newMove[0])) {
-		newMove = String.fromCharCode(96 + parseInt(newMove[0])) + nextMove;
-	}
+    for (const line of lines) {
+        const parts = line.split(/\s+/);
+        const moveText = parts.slice(0, -1).join(' ');
+        const result = parts[parts.length - 1];
 
-	lastMoveText += newMove;
-	moveHistory.textContent += lastMoveText+ "\r\n";
+        if (moveNumber % 2 === 1) {
+            moves += `${moveNumber}. ${moveText} `;
+        } else {
+            moves += `${moveText} ${result}\n`;
+        }
+
+        moveNumber++;
+    }
+
+    pgn += moves;
+    return pgn;
 }
 
-function swapNodes(lastPressedPiece, emptySquare){	
+function updateMoveHistory(capture, castled, castleDirection, pieceLetter, isPromotion){
+	let isPawn = false;
+	if(pieceLetter == null){
+		isPawn = true;
+	}
+	if(castled){
+		if(castleDirection == null){ //moving the king. When the rooks swap they add to the history
+
+		}else if(castleDirection == "short"){
+			moveHistory.textContent += "O-O";
+			if(confirmedCheckmate){
+				moveHistory.textContent +="#\r\n";
+			}else if(kingElementInCheck){
+				moveHistory.textContent +="+\r\n";
+			}else{
+				moveHistory.textContent +="\r\n";
+			}
+		}else{
+			moveHistory.textContent += "O-O-O";
+			if(confirmedCheckmate){
+				moveHistory.textContent +="#\r\n";
+			}else if(kingElementInCheck){
+				moveHistory.textContent +="+\r\n";
+			}else{
+				moveHistory.textContent +="\r\n";
+			}
+		}
+	}else{
+		if(pieceLetter && !isPromotion){
+			moveHistory.textContent += pieceLetter;
+		}
+
+		let nextMove = lastMoveText.substring(1);
+		if (/^[1-8]$/.test(lastMoveText[0])) {
+			lastMoveText = String.fromCharCode(96 + parseInt(lastMoveText[0])) + nextMove;
+		}
+
+		
+		if(capture){
+			if(isPawn){
+				lastMoveText = lastMoveText.substring(0,1) + "x";
+			}else{
+				lastMoveText ="x"; //change to += ' takes ' to show original to new square. e4 takes d5, vs, exd5. Problems with multiple pieces could be that move Rbd1 etc.
+			}
+			//also remove && lastMoveText!="x" from this.
+			if(pieceLetter && !isPromotion && lastMoveText != "x"){
+				lastMoveText += pieceLetter;
+			}
+		}else{
+			lastMoveText = ""; //change to += ' to ' to show original to new square. e2 to e4, vs, e4. Problems with Rbd1 etc.
+			//also remove && lastMoveText!="" from this.
+			if(pieceLetter && !isPromotion && lastMoveText!=""){
+				lastMoveText += pieceLetter;
+			}
+		}
+		
+		nextMove = newMove.substring(1);
+		if (/^[1-8]$/.test(newMove[0])) {
+			newMove = String.fromCharCode(96 + parseInt(newMove[0])) + nextMove;
+		}
+
+		lastMoveText += newMove;
+		moveHistory.textContent += lastMoveText;
+		if(isPromotion){
+			moveHistory.textContent += `=${pieceLetter}`;
+		}
+		if(confirmedCheckmate){
+			moveHistory.textContent +="#\r\n";
+			
+			moveHistory.textContent+= result;
+		}else if(kingElementInCheck){
+			moveHistory.textContent +="+\r\n";
+		}else{
+			moveHistory.textContent +="\r\n";
+		}
+	}
+}
+
+function swapNodes(lastPressedPiece, emptySquare, castled = false, castleDirection = null, pieceLetter = null, isPromotion = false){	
+	let capture = false;
+	if(emptySquare.classList.contains("piece")){
+		capture = true;
+	}
 	let color = (getPieceColor(lastPressedPiece) === "white") ? "black" : "white";
 	lastMove = lastPressedPiece;
 	lastMoveOldSquare = lastPressedPiece.parentNode;
 	lastMoveToSquare = emptySquare.parentNode;
 	lastMoveText = lastPressedPiece.parentNode.getAttribute("column")+lastPressedPiece.parentNode.getAttribute("row");
 	newMove = emptySquare.parentNode.getAttribute("column")+emptySquare.parentNode.getAttribute("row");
-	updateMoveHistory();
+	
 
 	if(emptySquare.classList.contains("passant")){
 		let capturedPawnSquare = document.querySelector(`[row="${parseInt(lastPressedPiece.parentNode.getAttribute("row"))}"][column="${parseInt(emptySquare.parentNode.getAttribute("column"))}"]`);
 		capturedPawnSquare.firstChild.remove();
 		capturedPawnSquare.appendChild(newEmpty());
+		capture = true;
 	}
 
 	lastPressedPiece.parentNode.appendChild(newEmpty());
@@ -135,6 +252,8 @@ function swapNodes(lastPressedPiece, emptySquare){
 
 	isKingChecked();
 
+	updateMoveHistory(capture, castled, castleDirection, pieceLetter, isPromotion);
+	
 	if(document.querySelectorAll(`.piece.${color}`).length==1){
 		if(checkStalemate(color, document.querySelector(`.${color}.king`))){
 			if(!kingElementInCheck){
@@ -224,39 +343,45 @@ function handlePromotion(pawnElement, isComputer){
 function movePiecePosition(lastPressedPiece, square, isComputer = false){//lastPressedPiece is the actual piece element. Square is the empty div element
 	//Pawn Promotion!
 	if(lastPressedPiece.classList.contains("wp") && parseInt(square.parentNode.getAttribute("row"))== 8){
-		
-		swapNodes(handlePromotion(lastPressedPiece, isComputer),square);
+
+		let newPromotedPiece = handlePromotion(lastPressedPiece, isComputer);
+		swapNodes(newPromotedPiece,square, false, null, newPromotedPiece.getAttribute("pieceLetter"), true);
 
 	}else if(lastPressedPiece.classList.contains("bp") && parseInt(square.parentNode.getAttribute("row"))== 1){
-		swapNodes(handlePromotion(lastPressedPiece, isComputer),square);
+
+		let newPromotedPiece = handlePromotion(lastPressedPiece, isComputer);
+		swapNodes(newPromotedPiece,square, false, null, newPromotedPiece.getAttribute("pieceLetter"), true);
 
 	}else if(lastPressedPiece.classList.contains("wr") && lastPressedPiece.getAttribute("data-moved")=="false" || lastPressedPiece.classList.contains("br") && lastPressedPiece.getAttribute("data-moved")=="false"){
 		lastPressedPiece.setAttribute("data-moved", "true");
 
-		swapNodes(lastPressedPiece, square);
+		swapNodes(lastPressedPiece, square, false, null, lastPressedPiece.getAttribute("pieceLetter"));
 		
 	}else if(lastPressedPiece.classList.contains("wk") && lastPressedPiece.getAttribute("data-moved")=="false"|| lastPressedPiece.classList.contains("bk") && lastPressedPiece.getAttribute("data-moved")=="false"){
+		let castled = false;
 		lastPressedPiece.setAttribute("data-moved", "true");
 		//take care of moving the rook over in castling
 		//kingStartingSquareColumn = 5;
 		if(7 == parseInt(square.parentNode.getAttribute("column"))){//short castled because moved two columns to the right
 			const rookNewSquare = document.querySelector(`[row="${parseInt(lastPressedPiece.parentNode.getAttribute("row"))}"][column="${6}"]`);
 			const rook = document.querySelector(`[row="${parseInt(lastPressedPiece.parentNode.getAttribute("row"))}"][column="${8}"]`);
-			
+
+			castled = true;
 			rook.firstChild.setAttribute("data-moved", "true");
-			swapNodes(rook.firstChild, rookNewSquare.firstChild);	
+			swapNodes(rook.firstChild, rookNewSquare.firstChild, true, "short");	
 
 		}else if(3 == parseInt(square.parentNode.getAttribute("column"))){//long castled because moved two columns to the left
 			const rookNewSquare = document.querySelector(`[row="${parseInt(lastPressedPiece.parentNode.getAttribute("row"))}"][column="${4}"]`);
 			const rook = document.querySelector(`[row="${parseInt(lastPressedPiece.parentNode.getAttribute("row"))}"][column="${1}"]`);
-
+			
+			castled = true;
 			rook.firstChild.setAttribute("data-moved", "true");
-			swapNodes(rook.firstChild, rookNewSquare.firstChild);
+			swapNodes(rook.firstChild, rookNewSquare.firstChild, true, "long");
 			
 		}//else, still move the king normally normally and remove hints and empty divs
-		swapNodes(lastPressedPiece, square);
+		swapNodes(lastPressedPiece, square, castled, null, lastPressedPiece.getAttribute("pieceLetter"));
 	}else{
-		swapNodes(lastPressedPiece, square);
+		swapNodes(lastPressedPiece, square, false, null, lastPressedPiece.getAttribute("pieceLetter"));
 	}	
 }
 
@@ -558,34 +683,40 @@ function pieceSetup(square, r, c, piece = null) {
 		startPiece.classList.add("wr");
 		startPiece.classList.add("white");
 		startPiece.src = "./pieceImages/wr.png";
+		startPiece.setAttribute("pieceLetter", "R");
 		startPiece.setAttribute("data-moved", "false");
 	}else if(r==1&&c==2 || r==1&&c==7 || piece == "wn"){
 		startPiece.classList.add("piece");
 		startPiece.classList.add("wn");
 		startPiece.classList.add("knight");
 		startPiece.classList.add("white");
+		startPiece.setAttribute("pieceLetter", "N");
 		startPiece.src = "./pieceImages/wn.png";
 	}else if(r==1&&c==3 || r==1&&c==6 || piece == "wb"){
 		startPiece.classList.add("piece");
 		startPiece.classList.add("wb");
 		startPiece.classList.add("white");
+		startPiece.setAttribute("pieceLetter", "B");
 		startPiece.src = "./pieceImages/wb.png";
 	}else if(r==1&&c==4 || piece == "wq"){
 		startPiece.classList.add("piece");
 		startPiece.classList.add("wq");
 		startPiece.classList.add("white");
+		startPiece.setAttribute("pieceLetter", "Q");
 		startPiece.src = "./pieceImages/wq.png";
 	}else if(r==1&&c==5){
 		startPiece.classList.add("piece");
 		startPiece.classList.add("wk");
 		startPiece.classList.add("white");
 		startPiece.classList.add("king");
+		startPiece.setAttribute("pieceLetter", "K");
 		startPiece.src = "./pieceImages/wk.png";
 		startPiece.setAttribute("data-moved", "false");
 	}else if(r==8&&c==1 || r==8&&c==8 || piece == "br"){
 		startPiece.classList.add("piece");
 		startPiece.classList.add("br");
 		startPiece.classList.add("black");
+		startPiece.setAttribute("pieceLetter", "R");
 		startPiece.src = "./pieceImages/br.png";
 		startPiece.setAttribute("data-moved", "false");
 	}else if(r==8&&c==2 || r==8&&c==7 || piece == "bn"){
@@ -593,22 +724,26 @@ function pieceSetup(square, r, c, piece = null) {
 		startPiece.classList.add("bn");
 		startPiece.classList.add("knight");
 		startPiece.classList.add("black");
+		startPiece.setAttribute("pieceLetter", "N");
 		startPiece.src = "./pieceImages/bn.png";
 	}else if(r==8&&c==3 || r==8&&c==6 || piece == "bb"){
 		startPiece.classList.add("piece");
 		startPiece.classList.add("bb");
 		startPiece.classList.add("black");
+		startPiece.setAttribute("pieceLetter", "B");
 		startPiece.src = "./pieceImages/bb.png";
 	}else if(r==8&&c==4 || piece == "bq"){
 		startPiece.classList.add("piece");
 		startPiece.classList.add("bq");
 		startPiece.classList.add("black");
+		startPiece.setAttribute("pieceLetter", "Q");
 		startPiece.src = "./pieceImages/bq.png";
 	}else if(r==8&&c==5){
 		startPiece.classList.add("piece");
 		startPiece.classList.add("bk");
 		startPiece.classList.add("black");
 		startPiece.classList.add("king");
+		startPiece.setAttribute("pieceLetter", "K");
 		startPiece.src = "./pieceImages/bk.png";
 		startPiece.setAttribute("data-moved", "false");
 	}else{
@@ -1393,6 +1528,8 @@ function isCheckmate(kingElementInQuestion, onlyMoves, onlyKingCanMove = false){
 		});
 	}
 	if(checkmate){
+		confirmedCheckmate = true;
+		result = (oppColor.toLowerCase() === "white")? "1-0" : "0-1";
 		statusText.textContent = `Checkmate. ${oppColor} wins.`;
 	}
 }

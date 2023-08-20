@@ -20,7 +20,7 @@ body{
 	gap: 20px;
 }
 
-@media (max-width: 1057px) {
+@media (max-width: 107px) {
 	.history {
 		display: none;
 	}
