@@ -1,10 +1,12 @@
 const board = document.querySelector(".board");
 const flipBoardButton = document.querySelector(".flip");
-const playComputer = document.querySelector(".computer");
+const computerButton = document.querySelector(".computer");
 const toggleHints = document.querySelector(".toggleHints");
 const statusText = document.querySelector(".status");
 const moveHistory = document.querySelector(".moveHistory");
 moveHistory.setAttribute('style', 'white-space: pre;');
+
+let attemptedPieces = new Set();
 
 let turn = document.querySelector(".turn");
 let isBlank = false;
@@ -35,6 +37,60 @@ let pieces = document.querySelectorAll(".piece.white"); //white goes first
 
 
 updateAttackedSquares();
+
+
+computerButton.addEventListener('click', () => {
+	attemptedPieces = new Set();
+	computerMove();
+});
+
+
+function computerMove() {
+	const computerPieces = document.querySelectorAll(`.piece.${turn.textContent.toLowerCase()}`);
+	const availablePieces = Array.from(computerPieces).filter(piece => !attemptedPieces.has(piece));
+
+	if (availablePieces.length === 0) {
+		console.log("no pieces");
+        return;
+    }
+	const randomPieceIndex = Math.floor(Math.random() * availablePieces.length);
+	const randomPiece = availablePieces[randomPieceIndex];
+
+	const mousedownEvent = new MouseEvent('mousedown', {
+		bubbles: true,
+		cancelable: false,
+		view: window
+	});
+	randomPiece.dispatchEvent(mousedownEvent);
+
+	const hintComputerOptions = document.querySelectorAll('.hint');
+	if (hintComputerOptions.length === 0) {
+		attemptedPieces.add(randomPiece);
+		document.dispatchEvent(new MouseEvent('mouseup'));
+        computerMove();
+    }else{
+		document.dispatchEvent(new MouseEvent('mouseup'));
+		const randomMoveIndex = Math.floor(Math.random() * hintComputerOptions.length);
+		console.log("IndexChoice: ", randomMoveIndex);
+		const randomMove = hintComputerOptions[randomMoveIndex];
+		console.log("Max choice: ", hintComputerOptions.length-1);
+		console.log(randomMove);
+
+		const movePieceEvent = new MouseEvent('mousedown', {
+			bubbles: true,
+			cancelable: true,
+			view: window
+		});
+		console.log("run");
+		console.log(randomMove);
+		console.log(movePieceEvent);
+
+		randomMove.dispatchEvent(movePieceEvent);
+		document.dispatchEvent(new MouseEvent('mouseup'));
+		
+		attemptedPieces.clear();
+	}
+}
 
 toggleHints.addEventListener('click', (event)=>{
 	if(hintTransparency === 0.2){
@@ -120,7 +176,7 @@ function checkStalemate(color, lastPieceKing) {
 	return returnVal;
 }
 
-function handlePromotion(pawnElement){
+function handlePromotion(pawnElement, isComputer){
 	console.log(pawnElement);
 	console.log(pawnElement.parentNode);
 	let pawnSquare = pawnElement.parentNode;
@@ -128,6 +184,13 @@ function handlePromotion(pawnElement){
 	let colorLetter = (getPieceColor(pawnElement)==="white") ? "w" : "b";
 	let promotionChoice;
 	let newPiece = null;
+
+	if(isComputer){ //defaultly give queen
+		pawnElement.remove();
+		newPiece = pieceSetup(null, null, null, `${colorLetter}q`);
+		pawnSquare.appendChild(newPiece);
+		return newPiece;
+	}
 
 	while (true) {
 		promotionChoice = prompt('Select a piece for pawn promotion:\n' + promotionOptions.join(', '));
@@ -168,14 +231,14 @@ function handlePromotion(pawnElement){
 	}	
 }
 
-function movePiecePosition(lastPressedPiece, square){//lastPressedPiece is the actual piece element. Square is the empty div element
+function movePiecePosition(lastPressedPiece, square, isComputer = false){//lastPressedPiece is the actual piece element. Square is the empty div element
 	//Pawn Promotion!
 	if(lastPressedPiece.classList.contains("wp") && parseInt(square.parentNode.getAttribute("row"))== 8){
 		
-		swapNodes(handlePromotion(lastPressedPiece),square);
+		swapNodes(handlePromotion(lastPressedPiece, isComputer),square);
 
 	}else if(lastPressedPiece.classList.contains("bp") && parseInt(square.parentNode.getAttribute("row"))== 1){
-		swapNodes(handlePromotion(lastPressedPiece),square);
+		swapNodes(handlePromotion(lastPressedPiece, isComputer),square);
 
 	}else if(lastPressedPiece.classList.contains("wr") && lastPressedPiece.getAttribute("data-moved")=="false" || lastPressedPiece.classList.contains("br") && lastPressedPiece.getAttribute("data-moved")=="false"){
 		lastPressedPiece.setAttribute("data-moved", "true");
@@ -209,7 +272,14 @@ function movePiecePosition(lastPressedPiece, square){//lastPressedPiece is the a
 
 
 document.addEventListener('mousedown', (event)=>{
-	if (event.target.parentNode.querySelector('.hint') && event.target.closest(".board")) {
+	if(!event.isTrusted && event.cancelable){ //computer move
+		let square = event.target.parentNode.querySelector(".empty");
+		if(!square){
+			square = event.target.parentNode.querySelector(".piece");
+		}
+		movePiecePosition(lastPressedPiece, square, true);
+		switchTurn();
+	}else if (event.target.parentNode.querySelector('.hint') && event.target.closest(".board")) {
 		let square = event.target.parentNode.querySelector(".empty");
 		if(!square){
 			square = event.target.parentNode.querySelector(".piece");
@@ -239,6 +309,7 @@ function allowPieceMovement(){
 	});
 }
 const mousedownDrag = (event) => {
+	console.log(event);
 	setCursor("grabbing");
 		removeHints();
         if (!isDragging) {
@@ -1118,13 +1189,13 @@ function searchMoves(pieceElement, pinForceDirection = null, mustGoSquare = null
 			const rookLeft = document.querySelector(`[row="${locY}"][column="${locX - 4}"]`);
 
 			if (rookRight && rookRight.firstChild && rookRight.firstChild.classList.contains("piece") && rookRight.firstChild.getAttribute("data-moved") === "false") {
-				if(kingElementInCheck==null){
+				if(kingElementInCheck==null && document.querySelector(`[row="${locY}"][column="${locX + 1}"]`).firstChild.classList.contains("empty")){
 					potentialHintSquares.push(document.querySelector(`[row="${locY}"][column="${locX + 2}"]`));
 				}
 			}
 
 			if (rookLeft && rookLeft.firstChild && rookLeft.firstChild.classList.contains("piece") && rookLeft.firstChild.getAttribute("data-moved") === "false") {
-				if(kingElementInCheck==null){
+				if(kingElementInCheck==null && document.querySelector(`[row="${locY}"][column="${locX - 1}"]`).firstChild.classList.contains("empty")){
 					potentialHintSquares.push(document.querySelector(`[row="${locY}"][column="${locX - 2}"]`));
 				}
 			}
