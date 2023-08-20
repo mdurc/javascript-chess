@@ -187,18 +187,17 @@ function updateMoveHistory(capture, castled, castleDirection, pieceLetter, isPro
 		if(capture){
 			if(isPawn){
 				lastMoveText = lastMoveText.substring(0,1) + "x";
+			}else if(isPromotion){
+				lastMoveText = lastMoveText.substring(0,1) + "x";
 			}else{
-				lastMoveText ="x"; //change to += ' takes ' to show original to new square. e4 takes d5, vs, exd5. Problems with multiple pieces could be that move Rbd1 etc.
-			}
-			//also remove && lastMoveText!="x" from this.
-			if(pieceLetter && !isPromotion && lastMoveText != "x"){
-				lastMoveText += pieceLetter;
+				lastMoveText ="x"; 
 			}
 		}else{
-			lastMoveText = ""; //change to += ' to ' to show original to new square. e2 to e4, vs, e4. Problems with Rbd1 etc.
-			//also remove && lastMoveText!="" from this.
-			if(pieceLetter && !isPromotion && lastMoveText!=""){
-				lastMoveText += pieceLetter;
+
+			if(isPawn){
+				lastMoveText = "";
+			}else{
+				lastMoveText += ""; 
 			}
 		}
 		
