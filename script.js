@@ -71,19 +71,13 @@ function computerMove() {
     }else{
 		document.dispatchEvent(new MouseEvent('mouseup'));
 		const randomMoveIndex = Math.floor(Math.random() * hintComputerOptions.length);
-		console.log("IndexChoice: ", randomMoveIndex);
 		const randomMove = hintComputerOptions[randomMoveIndex];
-		console.log("Max choice: ", hintComputerOptions.length-1);
-		console.log(randomMove);
 
 		const movePieceEvent = new MouseEvent('mousedown', {
 			bubbles: true,
 			cancelable: true,
 			view: window
 		});
-		console.log("run");
-		console.log(randomMove);
-		console.log(movePieceEvent);
 
 		randomMove.dispatchEvent(movePieceEvent);
 		document.dispatchEvent(new MouseEvent('mouseup'));
@@ -103,7 +97,6 @@ toggleHints.addEventListener('click', (event)=>{
 flipBoardButton.addEventListener('click', flipBoard);
 
 function updateMoveHistory(){
-	printBoardCoords();
 	let nextMove = lastMoveText.substring(1);
 	if (/^[1-8]$/.test(lastMoveText[0])) {
 		lastMoveText = String.fromCharCode(96 + parseInt(lastMoveText[0])) + nextMove;
@@ -177,8 +170,6 @@ function checkStalemate(color, lastPieceKing) {
 }
 
 function handlePromotion(pawnElement, isComputer){
-	console.log(pawnElement);
-	console.log(pawnElement.parentNode);
 	let pawnSquare = pawnElement.parentNode;
 	const promotionOptions = ['Queen', 'Rook', 'Knight', 'Bishop'];
 	let colorLetter = (getPieceColor(pawnElement)==="white") ? "w" : "b";
@@ -309,7 +300,6 @@ function allowPieceMovement(){
 	});
 }
 const mousedownDrag = (event) => {
-	console.log(event);
 	setCursor("grabbing");
 		removeHints();
         if (!isDragging) {
@@ -1432,8 +1422,8 @@ function isKingChecked(color = "none", showResult = true){
 		const kingColor = (opponentColor == "white") ? "black" : "white";
         const kingRow = parseInt(king.parentNode.getAttribute("row"));
         const kingColumn = parseInt(king.parentNode.getAttribute("column"));
-		console.log("kingC: ", king);
-		console.log(findPieceGivingCheck(king));
+		console.log("King Possibly in Check: ", king);
+		console.log("Pieces giving check?: ", findPieceGivingCheck(king));
 
         if (isSquareAttackedByColor(kingRow, kingColumn, opponentColor)) {
 			kingElementInCheck = king;
