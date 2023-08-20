@@ -1,5 +1,8 @@
 # javascript-chess
 
+
+[Demo Link](https://mdurc.github.io/javascript-chess) 
+
 <ul>
   <li>Fully functional chess game. Defualtly 2 person game (User controls both sides. Turn is displayed above the board).</li>
   <li>Shows a move history list on the left, updating dynamically</li>
