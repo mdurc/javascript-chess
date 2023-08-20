@@ -116,14 +116,14 @@ getPGNButton.addEventListener('click', (event)=>{
     getPGNButton.textContent = 'Copied';
 
 	setTimeout(() => {
-		getPGNButton.textContent = 'Get PGN';
+		getPGNButton.textContent = 'Copy PGN';
     }, 1000);
 });
 
 flipBoardButton.addEventListener('click', flipBoard);
 
 function convertToPGN(inputText) {
-    let pgn = `[Event "?"]\n[Site "?"]\n[Date "????.??.??"]\n[Round "?"]\n[White "?"]\n[Black "?"]\n[Result ${result}]\n\n`;
+    let pgn = `[Event "?"]\n[Site "?"]\n[Date "????.??.??"]\n[Round "?"]\n[White "?"]\n[Black "?"]\n[Result "${result}"]\n\n`;
     let moveNumber = 1;
 	let displayNumber = 1;
     let moves = '';
@@ -190,19 +190,14 @@ function updateMoveHistory(capture, castled, castleDirection, pieceLetter, isPro
 
 		
 		if(capture){
-			if(isPawn){
-				lastMoveText = lastMoveText.substring(0,1) + "x";
-			}else if(isPromotion){
+			if(isPawn || isPromotion){
 				lastMoveText = lastMoveText.substring(0,1) + "x";
 			}else{
-				lastMoveText ="x"; 
+				lastMoveText +="x"; 
 			}
 		}else{
-
-			if(isPawn){
-				lastMoveText = "";
-			}else{
-				lastMoveText += ""; 
+			if(isPawn || isPromotion){
+				lastMoveText = ""; //makes it just e4, vs e2e4
 			}
 		}
 		
