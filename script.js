@@ -125,18 +125,23 @@ flipBoardButton.addEventListener('click', flipBoard);
 function convertToPGN(inputText) {
     let pgn = `[Event "?"]\n[Site "?"]\n[Date "????.??.??"]\n[Round "?"]\n[White "?"]\n[Black "?"]\n[Result ${result}]\n\n`;
     let moveNumber = 1;
+	let displayNumber = 1;
     let moves = '';
     const lines = inputText.trim().split('\n');
 
     for (const line of lines) {
         const parts = line.split(/\s+/);
+		if(parts.length==1){
+			parts.push(" ");
+		}
         const moveText = parts.slice(0, -1).join(' ');
         const result = parts[parts.length - 1];
 
         if (moveNumber % 2 === 1) {
-            moves += `${moveNumber}. ${moveText} `;
+            moves += `${displayNumber}. ${moveText} `;
         } else {
-            moves += `${moveText} ${result}\n`;
+            moves += `${moveText} ${result}`;
+			displayNumber++;
         }
 
         moveNumber++;
@@ -249,17 +254,18 @@ function swapNodes(lastPressedPiece, emptySquare, castled = false, castleDirecti
 	emptySquare.remove();
 	updateAttackedSquares();
 
-	isKingChecked();
-
-	updateMoveHistory(capture, castled, castleDirection, pieceLetter, isPromotion);
+	isKingChecked();	
 	
 	if(document.querySelectorAll(`.piece.${color}`).length==1){
 		if(checkStalemate(color, document.querySelector(`.${color}.king`))){
 			if(!kingElementInCheck){
 				statusText.textContent="Stalemate.";
+				result = "1/2-1/2";
 			}
 		}
 	}
+
+	updateMoveHistory(capture, castled, castleDirection, pieceLetter, isPromotion);
 }
 function checkStalemate(color, lastPieceKing) {
 	let locX = parseInt(lastPieceKing.parentNode.getAttribute("column"));
