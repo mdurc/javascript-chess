@@ -50,7 +50,7 @@ function computerMove() {
 	const availablePieces = Array.from(computerPieces).filter(piece => !attemptedPieces.has(piece));
 
 	if (availablePieces.length === 0) {
-		console.log("no pieces");
+		console.log("No pieces available to move");
         return;
     }
 	const randomPieceIndex = Math.floor(Math.random() * availablePieces.length);
@@ -217,7 +217,6 @@ function handlePromotion(pawnElement, isComputer){
 			return newPiece;
 
 		default:
-			console.log("invalid choice");
 			break;
 	}	
 }
@@ -321,10 +320,9 @@ const mousedownDrag = (event) => {
 
 		let maybePin = searchForCapturingPinner(draggedPiece);
 		if(maybePin[0]){ //piece is pinned
-			console.log("actually pinned");
+			console.log("Piece is pinned");
 		}
 		if(kingElementInCheck){
-			console.log("isInCheckStill");
 			let possibleMoves = [];
 			if(checkAttackingPiece.length>1){
 				possibleMoves.push(getRequiredMovesFromCheck(checkAttackingPiece, kingElementInCheck));
@@ -618,7 +616,6 @@ function pieceSetup(square, r, c, piece = null) {
 		square.appendChild(newEmpty());
 	}
 	if(piece){
-		console.log(startPiece);
 		startPiece.setAttribute("draggable",false);
 		return startPiece;
 	}else if(!isBlank){
@@ -714,7 +711,6 @@ function hint(pieceElement, blankSquare, direction, locX, locY, checkingForMate 
 			}
 	if(checkingForMate){
 		removeHints();
-		console.log("hasOption: ", hasOption);
 		return hasOption;
 	}
 }
@@ -976,13 +972,9 @@ function searchForCapturingPinner(pieceElement) {
 						return [false, null, lastPressedPiece];
 					}else if (square.firstChild.classList.contains("piece") && square.firstChild.classList.contains(opponentColor)) {
 						if((oppositeDirection.name === "right" || oppositeDirection.name === "left" || oppositeDirection.name === "up" || oppositeDirection.name === "down") && square.firstChild.classList.contains(`${opponentAbbrev}r`) || square.firstChild.classList.contains(`${opponentAbbrev}q`)){
-							console.log(`King is located ${kingDirection} of the pinned piece.`);
-							console.log(`Next piece in the opposite direction: ${square.firstChild.classList[1]}`);
 							return [true, oppositeDirection.name, square.firstChild];
 
 						}else if((oppositeDirection.name === "up right diagonal" || oppositeDirection.name === "up left diagonal" || oppositeDirection.name === "down right diagonal" || oppositeDirection.name === "down left diagonal") && square.firstChild.classList.contains(`${opponentAbbrev}b`) || square.firstChild.classList.contains(`${opponentAbbrev}q`)){
-							console.log(`King is located ${kingDirection} of the pinned piece.`);
-							console.log(`Next piece in the opposite direction: ${square.firstChild.classList[1]}`);
 							return [true, oppositeDirection.name, square.firstChild];
 						}else{
 							return [false, null, lastPressedPiece];
@@ -1388,15 +1380,12 @@ function isCheckmate(kingElementInQuestion, onlyMoves, onlyKingCanMove = false){
 	let checkmate = true;
 	if(onlyKingCanMove){
 		let maybePin = searchForCapturingPinner(kingElementInQuestion);
-		console.log("hasSearch: ", searchMoves(kingElementInQuestion, maybePin[1], onlyMoves, true));
 		if(searchMoves(kingElementInQuestion, maybePin[1], onlyMoves, true)){
 			checkmate = false;
 		}
 	}else{
 		availablePieces.forEach(piece => {
-			console.log(piece);
 			let maybePin = searchForCapturingPinner(piece);
-			console.log("hasSearch: ", searchMoves(piece, maybePin[1], onlyMoves, true));
 			if(searchMoves(piece, maybePin[1], onlyMoves, true)){
 				checkmate = false;
 			}
@@ -1422,8 +1411,6 @@ function isKingChecked(color = "none", showResult = true){
 		const kingColor = (opponentColor == "white") ? "black" : "white";
         const kingRow = parseInt(king.parentNode.getAttribute("row"));
         const kingColumn = parseInt(king.parentNode.getAttribute("column"));
-		console.log("King Possibly in Check: ", king);
-		console.log("Pieces giving check?: ", findPieceGivingCheck(king));
 
         if (isSquareAttackedByColor(kingRow, kingColumn, opponentColor)) {
 			kingElementInCheck = king;
@@ -1437,9 +1424,6 @@ function isKingChecked(color = "none", showResult = true){
 			let possibleMoves = [];
 			if(checkAttackingPiece.length>1){
 				possibleMoves.push(getRequiredMovesFromCheck(checkAttackingPiece, kingElementInCheck));
-				possibleMoves.forEach(square => {
-					console.log("Possible move: ", square);
-				});
 				isCheckmate(kingElementInCheck, possibleMoves, true);
 			}else{
 				if(isPieceAdjacentToKing(checkAttackingPiece[0], kingElementInCheck)){
