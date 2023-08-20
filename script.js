@@ -1171,13 +1171,13 @@ function searchMoves(pieceElement, pinForceDirection = null, mustGoSquare = null
 			const rookLeft = document.querySelector(`[row="${locY}"][column="${locX - 4}"]`);
 
 			if (rookRight && rookRight.firstChild && rookRight.firstChild.classList.contains("piece") && rookRight.firstChild.getAttribute("data-moved") === "false") {
-				if(kingElementInCheck==null && document.querySelector(`[row="${locY}"][column="${locX + 1}"]`).firstChild.classList.contains("empty")){
+				if(kingElementInCheck==null && document.querySelector(`[row="${locY}"][column="${locX + 1}"]`).firstChild.classList.contains("empty") && !isSquareAttackedByColor(locY, locX+1, oppColorTest)){
 					potentialHintSquares.push(document.querySelector(`[row="${locY}"][column="${locX + 2}"]`));
 				}
 			}
 
 			if (rookLeft && rookLeft.firstChild && rookLeft.firstChild.classList.contains("piece") && rookLeft.firstChild.getAttribute("data-moved") === "false") {
-				if(kingElementInCheck==null && document.querySelector(`[row="${locY}"][column="${locX - 1}"]`).firstChild.classList.contains("empty")){
+				if(kingElementInCheck==null && document.querySelector(`[row="${locY}"][column="${locX - 1}"]`).firstChild.classList.contains("empty") && !isSquareAttackedByColor(locY, locX-1, oppColorTest) && document.querySelector(`[row="${locY}"][column="${locX - 3}"]`).firstChild.classList.contains("empty")){
 					potentialHintSquares.push(document.querySelector(`[row="${locY}"][column="${locX - 2}"]`));
 				}
 			}
@@ -1190,6 +1190,7 @@ function searchMoves(pieceElement, pinForceDirection = null, mustGoSquare = null
 					//doesnt need mustGo, because the king cant block
 					updateAttackedSquares(pieceElement);
 					if(!isSquareAttackedByColor(parseInt(square.getAttribute("row")), parseInt(square.getAttribute("column")), oppColorTest)){
+						//makes sure the king doesnt move backwards, still in line with a queen or rook or bishop
 						updateAttackedSquares();
 						if(checkingForMate){
 							if(!saveReturn){
